@@ -9,7 +9,7 @@ OP.charts = (function () {
     '.m{fill:var(--text-muted)}.b{font-weight:600}.sm{font-size:10.5px}.lg{font-size:13px}' +
     '.gl{stroke:var(--border);stroke-width:1}.gls{stroke:var(--border-strong);stroke-width:1}' +
     '.hdr{fill:var(--surface-2)}.wk{fill:var(--weekend)}.gsel{fill:var(--accent-soft)}' +
-    '.bar{fill:var(--bar);stroke:var(--bar-edge);stroke-width:1}.bar.c{fill:var(--critical);stroke:var(--critical-edge)}.prog{fill:var(--bar-progress)}' +
+    '.bar{fill:var(--bar);stroke:var(--bar-edge);stroke-width:1;rx:2px}.bar.c{fill:var(--critical);stroke:var(--critical-edge)}.prog{fill:var(--bar-progress)}' +
     '.sum{fill:var(--summary)}.ms{fill:var(--milestone)}.ms.c{fill:var(--critical)}' +
     '.lnk{stroke:var(--link);fill:none;stroke-width:1.25}.lnk.c{stroke:var(--critical)}' +
     '.ah{fill:var(--link)}.ah.c{fill:var(--critical)}.today{stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 3}' +
@@ -21,7 +21,9 @@ OP.charts = (function () {
     '.cbar{fill:var(--bar)}.cline{stroke:var(--bar);stroke-width:2;fill:none}.bud{stroke:var(--critical);stroke-width:1.5;stroke-dasharray:6 4}' +
     '.hit{fill:transparent}.hit:hover{fill:var(--accent);fill-opacity:.12}.grp{fill:var(--surface-3)}.bl{fill:var(--baseline)}.bar.late{fill:var(--warn)}' +
     '.gsplit{stroke:var(--bar);stroke-width:1.5;stroke-dasharray:2 3}.dl{fill:var(--good);stroke:var(--good);stroke-width:1.5}.dl.miss{fill:var(--critical);stroke:var(--critical)}' +
-    '.gstat{stroke:var(--warn);stroke-width:1.5}.gstat-t{fill:var(--warn)}';
+    '.gstat{stroke:var(--warn);stroke-width:1.5}.gstat-t{fill:var(--warn)}' +
+    '.bar.man{fill:var(--surface);stroke-dasharray:3 2}.bar.man.c{fill:var(--critical-soft)}.bar.off{fill:var(--surface-3);stroke:var(--border-strong);stroke-dasharray:2 2}' +
+    '.gbar.off text,.gbar.off .prog{opacity:.5}';
 
   function svgOpen(w, h, cls) {
     return '<svg xmlns="http://www.w3.org/2000/svg" class="' + (cls || '') + '" width="' + Math.ceil(w) + '" height="' + Math.ceil(h) +
@@ -121,7 +123,7 @@ OP.charts = (function () {
         var cls = r.summary ? ' class="b"' : '', lvl = o.flat ? 1 : r.task.level;
         h.push('<text class="m" x="6" y="' + y + '">' + r.id + '</text>');
         h.push('<text' + cls + ' x="' + (40 + (lvl - 1) * 14) + '" y="' + y + '">' + esc(trunc(r.task.name, 38 - lvl * 2)) + '</text>');
-        h.push('<text x="320" y="' + y + '">' + OP.model.fmtDuration(r.duration) + '</text>');
+        h.push('<text x="320" y="' + y + '">' + OP.model.fmtDuration(r.shown, r.elapsed) + '</text>');
         h.push('<text x="386" y="' + y + '">' + U.fmt(r.startDn) + '</text>');
         h.push('<text x="464" y="' + y + '">' + U.fmt(r.finishDn) + '</text>');
       });
@@ -145,11 +147,11 @@ OP.charts = (function () {
       var x1 = X(r.startDn), x2 = X(r.finishDn) + ppd;
       var showBase = o.baseline && r.base;
       var by = showBase ? y + 3 : y + 6, bh = showBase ? 11 : 12;
-      var tip = '<title>' + esc(r.id + '. ' + r.task.name + ' — ' + U.fmt(r.startDn) + ' to ' + U.fmt(r.finishDn) + ', ' + OP.model.fmtDuration(r.duration) +
+      var tip = '<title>' + esc(r.id + '. ' + r.task.name + ' — ' + U.fmt(r.startDn) + ' to ' + U.fmt(r.finishDn) + ', ' + OP.model.fmtDuration(r.shown, r.elapsed) +
         (r.slack > 0 ? ', slack ' + U.num(r.slack) + 'd' : '') + (r.percent ? ', ' + r.percent + '% complete' : '') +
         (r.base ? '\nBaseline: ' + U.fmt(r.base.startDn) + ' to ' + U.fmt(r.base.finishDn) : '') +
         (r.task.deadline ? '\nDeadline: ' + U.fmt(U.parseDate(r.task.deadline)) : '')) + '</title>';
-      h.push('<g class="gbar" data-uid="' + esc(r.task.uid) + '" tabindex="0" role="button" aria-label="' + esc(r.id + '. ' + r.task.name) + '">' + tip);
+      h.push('<g class="gbar' + (r.inactive ? ' off' : '') + '" data-uid="' + esc(r.task.uid) + '" tabindex="0" role="button" aria-label="' + esc(r.id + '. ' + r.task.name) + '">' + tip);
       if (showBase) {
         var bx1 = X(r.base.startDn), bx2 = X(r.base.finishDn) + ppd;
         if (r.milestone || !r.base.duration) h.push('<path class="bl" d="M' + bx2 + ',' + (y + 15) + 'l4,4l-4,4l-4,-4z"/>');
@@ -169,7 +171,7 @@ OP.charts = (function () {
         segs.forEach(function (sg, si) {
           var sx1 = xs(sg[0]), sx2 = Math.max(xe(sg[1]), sx1 + 2);
           if (si > 0) h.push('<line class="gsplit" x1="' + lastEnd + '" y1="' + (by + bh / 2) + '" x2="' + sx1 + '" y2="' + (by + bh / 2) + '"/>');
-          h.push('<rect class="bar' + crit + (r.late && o.baseline ? ' late' : '') + '" x="' + sx1 + '" y="' + by + '" width="' + (sx2 - sx1) + '" height="' + bh + '"/>');
+          h.push('<rect class="bar' + crit + (r.manual ? ' man' : '') + (r.inactive ? ' off' : '') + (r.late && o.baseline && !r.inactive ? ' late' : '') + '" x="' + sx1 + '" y="' + by + '" width="' + (sx2 - sx1) + '" height="' + bh + '"/>');
           var len = sg[1] - sg[0], fill = Math.max(0, Math.min(len, done));
           if (fill > 0 && len > 0) h.push('<rect class="prog" x="' + sx1 + '" y="' + (by + bh / 2 - 1.5) + '" width="' + ((sx2 - sx1) * fill / len) + '" height="3"/>');
           done -= len;
@@ -291,7 +293,7 @@ OP.charts = (function () {
     edges.forEach(function (e) {
       var a = byI[e.from], b = byI[e.to];
       var from = e.type === 'FS' || e.type === 'FF' ? a.ef : a.es, to = e.type === 'FS' || e.type === 'SS' ? b.es : b.ef;
-      var crit = o.critical && a.critical && b.critical && Math.abs(from + e.lag - to) < 1e-9;
+      var crit = o.critical && a.critical && b.critical && Math.abs(from + e.eff - to) < 1e-9;
       h.push(edgePath(port(e.from), port(e.to), crit));
     });
     rows.forEach(function (r) {
@@ -309,7 +311,7 @@ OP.charts = (function () {
     rows.forEach(function (r) {
       var p = at[r.i];
       h.push('<g class="nnode" data-uid="' + esc(r.task.uid) + '" tabindex="0" role="button" aria-label="' + esc(r.id + '. ' + r.task.name) + '">' + nodeBox(p.x, p.y, {
-        es: o.dates ? U.fmt(r.startDn) : v(r.es), dur: OP.model.fmtDuration(r.duration), ef: o.dates ? U.fmt(r.finishDn) : v(r.ef),
+        es: o.dates ? U.fmt(r.startDn) : v(r.es), dur: OP.model.fmtDuration(r.shown, r.elapsed), ef: o.dates ? U.fmt(r.finishDn) : v(r.ef),
         id: r.id, name: r.task.name, res: r.names, ls: o.dates ? U.fmt(s.cal.date(r.ls)) : v(r.ls),
         slack: U.num(r.slack) + 'd', lf: o.dates ? U.fmt(s.cal.date(Math.max(Math.ceil(r.lf) - 1, 0))) : v(r.lf), crit: o.critical && r.critical
       }) + '</g>');

@@ -159,7 +159,7 @@ export function Backstage() {
     </div></>;
   } else if (page === 'open') {
     body = <><h1>Open</h1>
-      <Tile icon="upload" title="Browse…" sub="OpenPlan project files (.openplan, .json)" act="open" />
+      <Tile icon="upload" title="Browse…" sub="OpenPlan files (.openplan, .json) or Microsoft Project XML (.xml)" act="open" />
       <Tile icon="table" title="Import from Excel or CSV…" sub="Paste a task list from a spreadsheet, or choose a CSV file" act="import" />
       <Tile icon="layers" title="Insert as Subproject…" sub="Add another project file under a new summary task" act="insert" />
       <Tile icon="undo" title="Restore Previous Project" sub="Bring back the plan that was open before the last New, Open or Sample" act="restore" disabled={!hasPrevious()} />
@@ -176,6 +176,7 @@ export function Backstage() {
     body = <VersionsPage />;
   } else if (page === 'export') {
     body = <><h1>Export</h1>
+      <Tile icon="gantt" title="Microsoft Project XML (.xml)" sub="Open it in MS Project with File › Open. Tasks, links, calendar and resources carry over" act="mspxml" />
       <Tile icon="table" title="Excel workbook (.xlsx)" sub="Task table with real dates, costs and slack" act="xlsx" />
       <Tile icon="table" title="CSV (.csv)" sub="The same table as plain text, for any spreadsheet" act="csv" />
       <Tile icon="image" title={'Picture of the ' + viewName + ' (.png)'} sub={img ? 'For Word reports' : 'Switch to Gantt, Network, WBS or Team Chart first'} act="png" disabled={!img} />

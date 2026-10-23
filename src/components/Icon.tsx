@@ -26,7 +26,9 @@ const ICONS: Record<string, string> = {
   report: 'M4 3h16v18H4zM8 7h8M8 11h8M8 15h5', clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
   repeat: 'M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3',
   filter: 'M3 4h18l-7 8v6l-4 2v-8z', columns: 'M3 4h18v16H3zM9 4v16M15 4v16', layers: 'M12 2l10 6-10 6L2 8zM2 14l10 6 10-6',
-  balance: 'M12 3v18M5 7h14M5 7l-3 7a4 4 0 0 0 6 0zM19 7l-3 7a4 4 0 0 0 6 0z', deadline: 'M6 3h12l-6 8zM12 11v10'
+  balance: 'M12 3v18M5 7h14M5 7l-3 7a4 4 0 0 0 6 0zM19 7l-3 7a4 4 0 0 0 6 0z', deadline: 'M6 3h12l-6 8zM12 11v10',
+  hand: 'M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.5 0-4-1-5.2-2.2L3.2 15.8a2 2 0 0 1 3-2.6L8 15',
+  ban: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM4.9 4.9l14.2 14.2'
 };
 
 export default function Icon({ name }: { name: string }) {

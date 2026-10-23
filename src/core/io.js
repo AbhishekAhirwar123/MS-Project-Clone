@@ -20,8 +20,10 @@ OP.io = (function () {
       if (!same) { same = { id: 'c' + Date.now().toString(36) + p.customFields.length, name: f.name, type: f.type }; p.customFields.push(same); }
       cfMap[f.id] = same.id;
     });
-    var newHol = sub.holidays.filter(function (h) { return p.holidays.indexOf(h) < 0; }).length;
-    if (newHol) warnings.push(newHol + ' holiday' + (newHol > 1 ? 's were' : ' was') + ' not added to this calendar');
+    var newEx = sub.exceptions.filter(function (x) {
+      return !p.exceptions.some(function (y) { return y.from === x.from && y.to === x.to && y.working === x.working; });
+    }).length;
+    if (newEx) warnings.push(newEx + ' calendar exception' + (newEx > 1 ? 's were' : ' was') + ' not added to this calendar');
     if (sub.baseline) warnings.push('its baseline was not copied');
     sub.resources.forEach(function (r) {
       var same = p.resources.filter(function (x) { return x.name && x.name === r.name; })[0];
@@ -40,7 +42,7 @@ OP.io = (function () {
       var c = U.clone(t);
       c.uid = taskMap[t.uid];
       c.level = t.level + 1;
-      c.preds = t.preds.filter(function (l) { return taskMap[l.uid]; }).map(function (l) { return { uid: taskMap[l.uid], type: l.type, lag: l.lag }; });
+      c.preds = t.preds.filter(function (l) { return taskMap[l.uid]; }).map(function (l) { return { uid: taskMap[l.uid], type: l.type, lag: l.lag, unit: l.unit }; });
       c.assignments = t.assignments.filter(function (a) { return resMap[a.res]; }).map(function (a) { return { res: resMap[a.res], units: a.units }; });
       c.custom = {};
       for (var k in t.custom) if (cfMap[k]) c.custom[cfMap[k]] = t.custom[k];

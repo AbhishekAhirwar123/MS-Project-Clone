@@ -20,6 +20,18 @@ OP.util = (function () {
     var dn = Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5);
     return iso(dn) === m[1] + '-' + m[2] + '-' + m[3] ? dn : null;
   }
+  // Dates people type: 2026-01-05, 5 Jan 26, 5-Jan-2026, 05/01/2026 (day first). Returns a day number or null.
+  function parseLoose(s) {
+    s = String(s || '').trim();
+    var iso0 = parseDate(s);
+    if (iso0 != null && /^\d{4}-\d{2}-\d{2}$/.test(s)) return iso0;
+    var m = /^(\d{1,2})[\s/.-]+([A-Za-z]{3,9}|\d{1,2})[\s/.-]+(\d{2}|\d{4})$/.exec(s);
+    if (!m) return null;
+    var mon = /^\d+$/.test(m[2]) ? +m[2] - 1 : MONTHS.map(function (x) { return x.toLowerCase(); }).indexOf(m[2].slice(0, 3).toLowerCase());
+    if (mon < 0 || mon > 11) return null;
+    var year = +m[3] < 100 ? 2000 + +m[3] : +m[3];
+    return parseDate(year + '-' + String(mon + 1).padStart(2, '0') + '-' + String(+m[1]).padStart(2, '0'));
+  }
   function toDate(dn) { return new Date(dn * 864e5); }
   function iso(dn) { return toDate(dn).toISOString().slice(0, 10); }
   function weekday(dn) { return ((dn + 4) % 7 + 7) % 7; }
@@ -62,18 +74,30 @@ OP.util = (function () {
   function slug(s) { return (s || 'project').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'project'; }
 
   return {
-    MONTHS: MONTHS, DAYS: DAYS, parseDate: parseDate, toDate: toDate, iso: iso, weekday: weekday,
+    MONTHS: MONTHS, DAYS: DAYS, parseDate: parseDate, parseLoose: parseLoose, toDate: toDate, iso: iso, weekday: weekday,
     fmt: fmt, fmtLong: fmtLong, setFullYear: setFullYear, todayDn: todayDn, money: money, num: num, esc: esc, clone: clone,
     download: download, slug: slug
   };
 })();
 
-/* ---------- working-day calendar (Mon-Fri, minus holidays) ---------- */
+/* ---------- working-day calendar (work week, minus holidays and exceptions) ---------- */
 
-OP.Calendar = function (startDn, holidays) {
-  var hol = {};
+// workDays: weekdays worked (0 = Sunday); exceptions: [{from, to, working}] date ranges that override the work week.
+// Later exceptions win over earlier ones, like overlapping exceptions in MS Project.
+OP.Calendar = function (startDn, holidays, workDays, exceptions) {
+  var hol = {}, over = {};
   (holidays || []).forEach(function (h) { var d = OP.util.parseDate(h); if (d != null) hol[d] = true; });
-  this.isWorking = function (dn) { var w = OP.util.weekday(dn); return w !== 0 && w !== 6 && !hol[dn]; };
+  (exceptions || []).forEach(function (x) {
+    var a = OP.util.parseDate(x.from), b = OP.util.parseDate(x.to || x.from);
+    if (a == null || b == null) return;
+    if (b < a) { var tmp = a; a = b; b = tmp; }
+    for (var d = a; d <= b && d - a < 3660; d++) over[d] = x.working ? 1 : 2;
+  });
+  var wd = workDays && workDays.length ? workDays : [1, 2, 3, 4, 5];
+  this.isWorking = function (dn) {
+    if (over[dn]) return over[dn] === 1;
+    return wd.indexOf(OP.util.weekday(dn)) >= 0 && !hol[dn];
+  };
   var first = startDn;
   var guard = 0;
   while (!this.isWorking(first) && guard++ < 3660) first++;
@@ -109,6 +133,8 @@ OP.Calendar.prototype.finishIndex = function (dn) { return this.indexOf(dn + 1);
 
 OP.model = (function () {
   var LINK_TYPES = ['FS', 'SS', 'FF', 'SF'];
+  // Lag units: working days, percent of the predecessor's duration, elapsed (calendar) days.
+  var LAG_UNITS = ['d', '%', 'ed'];
   var RES_TYPES = ['Manager', 'Full-time', 'Part-time', 'Supporter'];
   var RES_KINDS = ['Work', 'Material', 'Cost'];
   var CONSTRAINTS = {
@@ -132,6 +158,11 @@ OP.model = (function () {
       currency: 'Rs.',
       hoursPerDay: 8,
       holidays: [],
+      workDays: [1, 2, 3, 4, 5],
+      exceptions: [],
+      scheduleFrom: 'start',
+      finishDate: '',
+      criticalSlack: 0,
       customFields: [],
       baseline: null,
       nextUid: 1,
@@ -143,7 +174,8 @@ OP.model = (function () {
   var TASK_DEFAULTS = {
     name: '', level: 1, duration: 1, milestone: false, percent: 0, notes: '', preds: [], assignments: [],
     constraint: 'ASAP', constraintDate: '', deadline: '', type: 'FixedUnits', effortDriven: true, fixedCost: 0,
-    actualStart: '', actualFinish: '', splits: [], levelDelay: 0, priority: 500, custom: {}
+    actualStart: '', actualFinish: '', splits: [], levelDelay: 0, priority: 500, custom: {},
+    mode: 'auto', active: true, manualStart: '', manualFinish: '', elapsed: false
   };
   var RES_DEFAULTS = {
     name: '', initials: '', role: '', type: 'Full-time', kind: 'Work', materialLabel: '', maxUnits: 100, rate: 0,
@@ -175,6 +207,21 @@ OP.model = (function () {
     p.budget = Math.max(0, num(p.budget, 0));
     p.hoursPerDay = Math.max(1, Math.min(24, num(p.hoursPerDay, 8)));
     p.holidays = arr(p.holidays).map(str);
+    p.workDays = arr(p.workDays).map(Number).filter(function (d, i, a) { return d >= 0 && d <= 6 && d === Math.floor(d) && a.indexOf(d) === i; }).sort();
+    if (!p.workDays.length) p.workDays = [1, 2, 3, 4, 5];
+    p.exceptions = arr(p.exceptions).filter(isObj).map(function (x) {
+      return { name: str(x.name), from: str(x.from), to: str(x.to || x.from), working: !!x.working };
+    }).filter(function (x) { return OP.util.parseDate(x.from) != null && OP.util.parseDate(x.to) != null; });
+    // Older files kept holidays as a plain date list; they are calendar exceptions now.
+    p.holidays.forEach(function (h) {
+      if (OP.util.parseDate(h) != null && !p.exceptions.some(function (x) { return !x.working && x.from === h && x.to === h; })) {
+        p.exceptions.push({ name: 'Holiday', from: h, to: h, working: false });
+      }
+    });
+    p.holidays = [];
+    p.scheduleFrom = p.scheduleFrom === 'finish' ? 'finish' : 'start';
+    p.finishDate = str(p.finishDate);
+    p.criticalSlack = Math.max(0, num(p.criticalSlack, 0));
     p.customFields = arr(p.customFields).filter(isObj).map(function (f) {
       return { id: str(f.id), name: str(f.name), type: f.type === 'number' ? 'number' : 'text' };
     });
@@ -202,13 +249,20 @@ OP.model = (function () {
       t.milestone = !!t.milestone;
       t.percent = Math.max(0, Math.min(100, num(t.percent, 0)));
       t.effortDriven = !!t.effortDriven;
+      t.mode = t.mode === 'manual' ? 'manual' : 'auto';
+      t.active = t.active !== false;
+      t.elapsed = !!t.elapsed;
+      t.manualStart = str(t.manualStart);
+      t.manualFinish = str(t.manualFinish);
       t.fixedCost = num(t.fixedCost, 0);
       t.levelDelay = Math.max(0, num(t.levelDelay, 0));
       t.priority = Math.max(0, Math.min(1000, num(t.priority, 500)));
       if (!CONSTRAINTS[t.constraint]) t.constraint = 'ASAP';
       if (!TASK_TYPES[t.type]) t.type = 'FixedUnits';
       t.preds = arr(t.preds).filter(isObj).map(function (l) {
-        return { uid: uidOf(l), type: LINK_TYPES.indexOf(l.type) >= 0 ? l.type : 'FS', lag: num(l.lag, 0) };
+        var link = { uid: uidOf(l), type: LINK_TYPES.indexOf(l.type) >= 0 ? l.type : 'FS', lag: num(l.lag, 0) };
+        if (l.unit === '%' || l.unit === 'ed') link.unit = l.unit;
+        return link;
       }).filter(function (l) { return l.uid; });
       t.assignments = arr(t.assignments).filter(isObj).map(function (a) {
         return { res: uidOf({ uid: a.res }), units: Math.max(0, num(a.units, 0)) };
@@ -270,37 +324,60 @@ OP.model = (function () {
     String(text || '').split(/[,;]/).forEach(function (part) {
       part = part.trim();
       if (!part) return;
-      var m = /^(\d+)\s*(FS|SS|FF|SF)?\s*(?:([+-])\s*(\d+(?:\.\d+)?)\s*d?)?$/i.exec(part);
+      var m = /^(\d+)\s*(FS|SS|FF|SF)?\s*(?:([+-])\s*(\d+(?:\.\d+)?)\s*(%|ed|ew|d|w|h)?)?$/i.exec(part);
       if (!m) { errors.push(part); return; }
       var t = p.tasks[+m[1] - 1];
       if (!t || t.uid === selfUid) { errors.push(part); return; }
-      var lag = m[3] ? (m[3] === '-' ? -1 : 1) * +m[4] : 0;
-      out.push({ uid: t.uid, type: (m[2] || 'FS').toUpperCase(), lag: lag });
+      var mag = +m[4], u = (m[5] || 'd').toLowerCase(), unit = 'd';
+      if (u === '%') unit = '%';
+      else if (u === 'ed') unit = 'ed';
+      else if (u === 'ew') { unit = 'ed'; mag *= 7; }
+      else if (u === 'w') mag *= 5;
+      else if (u === 'h') mag = Math.round(mag / (+p.hoursPerDay || 8) * 100) / 100;
+      var lag = m[3] ? (m[3] === '-' ? -1 : 1) * mag : 0;
+      var link = { uid: t.uid, type: (m[2] || 'FS').toUpperCase(), lag: lag };
+      if (unit !== 'd') link.unit = unit;
+      out.push(link);
     });
     return { preds: out, errors: errors };
   }
 
+  function fmtLag(l) {
+    return (l.lag > 0 ? '+' : '') + l.lag + (l.unit === '%' ? '%' : l.unit === 'ed' ? 'ed' : 'd');
+  }
   function formatPreds(p, t, idx) {
     idx = idx || indexByUid(p);
     return t.preds.filter(function (l) { return idx[l.uid] != null; }).map(function (l) {
       var s = String(idx[l.uid] + 1);
       if (l.type !== 'FS' || l.lag) s += l.type;
-      if (l.lag) s += (l.lag > 0 ? '+' : '') + l.lag + 'd';
+      if (l.lag) s += fmtLag(l);
       return s;
     }).join(', ');
   }
 
-  // "5", "5d", "2w", "16h" -> working days
-  function parseDuration(text, hpd) {
-    var m = /^\s*(\d+(?:\.\d+)?)\s*(d|day|days|w|wk|wks|week|weeks|h|hr|hrs|hours?)?\s*$/i.exec(String(text));
+  // "5", "5d", "2w", "16h", "30min", "1mo", "3ed", "2ew" -> { days, elapsed }.
+  // Working units convert to working days (a week is 5 days, a month 20, an hour 1/hoursPerDay);
+  // "ed"/"ew"/"emo" are elapsed (calendar) time, so the result is in calendar days. A trailing "?" (estimate) is accepted.
+  function parseDurationEx(text, hpd) {
+    var m = /^\s*(\d+(?:\.\d+)?)\s*(e?(?:d|day|days|w|wk|wks|week|weeks|mo|mon|month|months)|min|mins|minutes?|h|hr|hrs|hours?)?\s*\??\s*$/i.exec(String(text));
     if (!m) return null;
-    var v = +m[1], u = (m[2] || 'd').toLowerCase();
-    if (u[0] === 'w') v *= 5;
+    var v = +m[1], u = (m[2] || 'd').toLowerCase(), elapsed = u[0] === 'e' && u !== 'e';
+    if (elapsed) u = u.slice(1);
+    if (/^mo/.test(u)) v *= elapsed ? 30 : 20;
+    else if (u[0] === 'w') v *= elapsed ? 7 : 5;
+    else if (/^mi/.test(u)) v /= 60 * (hpd || 8);
     else if (u[0] === 'h') v /= (hpd || 8);
-    return Math.round(v * 100) / 100;
+    return { days: Math.round(v * 100) / 100, elapsed: elapsed };
   }
 
-  function fmtDuration(d) { return OP.util.num(d, 2) + 'd'; }
+  // Working days. Elapsed input ("3ed") is read as its calendar-day count; callers that care about
+  // the difference use parseDurationEx.
+  function parseDuration(text, hpd) {
+    var r = parseDurationEx(text, hpd);
+    return r ? r.days : null;
+  }
+
+  function fmtDuration(d, elapsed) { return OP.util.num(d, 2) + (elapsed ? 'ed' : 'd'); }
 
   function removeTasks(p, uids) {
     var set = {};
@@ -347,17 +424,23 @@ OP.model = (function () {
     LINK_TYPES: LINK_TYPES, RES_TYPES: RES_TYPES, RES_KINDS: RES_KINDS, CONSTRAINTS: CONSTRAINTS, TASK_TYPES: TASK_TYPES,
     blank: blank, newTask: newTask, newResource: newResource, normalize: normalize,
     isSummary: isSummary, subtreeEnd: subtreeEnd, indexByUid: indexByUid, parsePreds: parsePreds,
-    formatPreds: formatPreds, parseDuration: parseDuration, fmtDuration: fmtDuration,
+    formatPreds: formatPreds, parseDuration: parseDuration, parseDurationEx: parseDurationEx, fmtDuration: fmtDuration, fmtLag: fmtLag,
+    LAG_UNITS: LAG_UNITS,
     removeTasks: removeTasks, normalizeLevels: normalizeLevels, initials: initials, rateOn: rateOn, workUnits: workUnits
   };
 })();
 
 /* ---------- scheduler (critical path method) ---------- */
 
-OP.schedule = function (p, opts) {
+function scheduleCore(p, opts) {
   var U = OP.util, M = OP.model;
   var tasks = p.tasks, n = tasks.length;
-  var cal = new OP.Calendar(U.parseDate(p.start) || U.todayDn(), p.holidays);
+  var startDn0 = opts && opts.startOverride != null ? opts.startOverride : (U.parseDate(p.start) || U.todayDn());
+  var cal = new OP.Calendar(startDn0, p.holidays, p.workDays, p.exceptions);
+  // Scheduling from the finish date pushes every task as late as its links allow.
+  var alapAll = !!(opts && opts.alapAll);
+  function isAlap(t) { return alapAll || t.constraint === 'ALAP'; }
+  function act(i) { return tasks[i].active !== false; }
   var hpd = +p.hoursPerDay || 8;
   var idx = M.indexByUid(p);
   var resByUid = {};
@@ -389,7 +472,27 @@ OP.schedule = function (p, opts) {
     for (var q = rows[b].parent; q >= 0; q = rows[q].parent) if (q === a) return true;
     return false;
   }
-  function dur(i) { return tasks[i].milestone ? 0 : Math.max(0, +tasks[i].duration || 0); }
+  // Working-day duration. Elapsed tasks and manual tasks with both dates get theirs from the forward pass (effDur).
+  var effDur = {};
+  function baseDur(i) { return tasks[i].milestone ? 0 : Math.max(0, +tasks[i].duration || 0); }
+  function dur(i) { return effDur[i] != null ? effDur[i] : baseDur(i); }
+  // Working days that fall inside `ed` calendar days starting on working day index `es`.
+  function elapsedWork(es, ed) {
+    if (ed <= 0) return 0;
+    var from = Math.floor(es);
+    return Math.max(cal.indexOf(cal.date(from) + Math.ceil(ed)) - from, 1);
+  }
+  // Fix the task's working duration for a given start index.
+  function spanFor(i, es) {
+    var t = tasks[i];
+    if (t.mode === 'manual' && t.manualStart && t.manualFinish) {
+      var ms = startIdx(t.manualStart), mf = finishIdx(t.manualFinish);
+      if (ms != null && mf != null) effDur[i] = Math.max(t.milestone ? 0 : 1, mf - ms);
+    } else if (t.elapsed && !t.milestone) {
+      effDur[i] = elapsedWork(es, baseDur(i));
+    }
+    return span(i);
+  }
   function gaps(i) {
     var d = dur(i);
     return (tasks[i].splits || []).reduce(function (a, s) { return a + (s.at > 0 && s.at < d ? Math.max(0, +s.gap || 0) : 0); }, 0);
@@ -403,11 +506,14 @@ OP.schedule = function (p, opts) {
       var pi = idx[l.uid];
       if (pi == null || pi === r.i || isAncestor(pi, r.i) || isAncestor(r.i, pi)) return;
       rows[pi].leaves.forEach(function (a) {
+        // An inactive task keeps its own dates but no longer drives its successors.
+        if (!act(a)) return;
         r.leaves.forEach(function (b) {
-          var key = a + '>' + b + l.type + l.lag;
+          var unit = l.unit || 'd', key = a + '>' + b + l.type + l.lag + unit;
           if (a === b || seen[key]) return;
           seen[key] = true;
-          edges.push({ from: a, to: b, type: l.type, lag: +l.lag || 0 });
+          // eff is the lag in working days; percent and elapsed lags are resolved in the forward pass.
+          edges.push({ from: a, to: b, type: l.type, lag: +l.lag || 0, unit: unit, eff: unit === 'd' ? +l.lag || 0 : 0 });
         });
       });
     });
@@ -440,32 +546,64 @@ OP.schedule = function (p, opts) {
   var cycle = stuck.filter(function (i) { return onLoop[i]; });
   if (opts && opts.cycleOnly) return { cycle: cycle.map(function (i) { return i + 1; }) };
 
-  // Earliest start allowed by one link, given the predecessor's dates.
+  // Earliest start allowed by one link, given the predecessor's dates (e.eff is the lag in working days).
   function linkStart(e, sp) {
-    if (e.type === 'FS') return EF[e.from] + e.lag;
-    if (e.type === 'SS') return ES[e.from] + e.lag;
-    if (e.type === 'FF') return EF[e.from] + e.lag - sp;
-    return ES[e.from] + e.lag - sp;
+    if (e.type === 'FS') return EF[e.from] + e.eff;
+    if (e.type === 'SS') return ES[e.from] + e.eff;
+    if (e.type === 'FF') return EF[e.from] + e.eff - sp;
+    return ES[e.from] + e.eff - sp;
+  }
+
+  // Turn a percent or elapsed-day lag into working days, once the predecessor's dates are known.
+  function resolveLag(e) {
+    if (e.unit === 'd') return;
+    var f = e.from, len = EF[f] - ES[f];
+    if (e.unit === '%') { e.eff = e.lag / 100 * len; return; }
+    var df = cal.date(Math.max(Math.ceil(EF[f]) - 1, 0)), ds = cal.date(ES[f]);
+    if (e.type === 'FS') e.eff = cal.indexOf(df + 1 + e.lag) - EF[f];
+    else if (e.type === 'SS') e.eff = cal.indexOf(ds + e.lag) - ES[f];
+    else if (e.type === 'FF') e.eff = cal.finishIndex(df + e.lag) - EF[f];
+    else e.eff = cal.finishIndex(ds + e.lag) - ES[f];
   }
 
   // Forward pass: early start / early finish in working-day units from project start.
   var ES = {}, EF = {}, conflict = {};
   order.forEach(function (i) {
-    var t = tasks[i], sp = span(i), es = 0, cd;
-    preds[i].forEach(function (e) {
-      if (cyclic[i] && cyclic[e.from]) return;
-      if (ES[e.from] == null) return;
-      es = Math.max(es, linkStart(e, sp));
+    var t = tasks[i], es = 0, sp, cd, manual = t.mode === 'manual';
+    var live = preds[i].filter(function (e) { return !(cyclic[i] && cyclic[e.from]) && ES[e.from] != null; });
+    live.forEach(function (e) {
+      resolveLag(e);
+      if (e.type === 'FS' || e.type === 'SS') es = Math.max(es, linkStart(e, 0));
     });
-    var fromLinks = es;
-    if (t.constraintDate) {
-      if (t.constraint === 'SNET' && (cd = startIdx(t.constraintDate)) != null) es = Math.max(es, cd);
-      if (t.constraint === 'FNET' && (cd = finishIdx(t.constraintDate)) != null) es = Math.max(es, cd - sp);
-      if (t.constraint === 'MSO' && (cd = startIdx(t.constraintDate)) != null) es = cd;
-      if (t.constraint === 'MFO' && (cd = finishIdx(t.constraintDate)) != null) es = cd - sp;
+    // FF and SF links depend on this task's own length, which for elapsed tasks depends on where it starts.
+    sp = spanFor(i, es);
+    for (var it = 0; it < 4; it++) {
+      var es2 = es;
+      live.forEach(function (e) { if (e.type === 'FF' || e.type === 'SF') es2 = Math.max(es2, linkStart(e, sp)); });
+      if (Math.abs(es2 - es) < 1e-9) break;
+      es = es2;
+      sp = spanFor(i, es);
     }
-    if (es < fromLinks - 1e-9) conflict[i] = 'The ' + M.CONSTRAINTS[t.constraint] + ' date is earlier than its predecessors allow';
-    es = Math.max(0, es) + (t.constraint === 'ALAP' ? 0 : +t.levelDelay || 0);
+    var fromLinks = es;
+    if (manual) {
+      // A manually scheduled task keeps the dates the user typed; links and constraints do not move it.
+      if (t.manualStart && (cd = startIdx(t.manualStart)) != null) {
+        es = cd;
+        sp = spanFor(i, es);
+        if (es < fromLinks - 1e-9) conflict[i] = 'This manually scheduled task starts before its predecessors allow';
+      }
+      es = Math.max(0, es);
+    } else {
+      if (t.constraintDate) {
+        if (t.constraint === 'SNET' && (cd = startIdx(t.constraintDate)) != null) es = Math.max(es, cd);
+        if (t.constraint === 'FNET' && (cd = finishIdx(t.constraintDate)) != null) es = Math.max(es, cd - sp);
+        if (t.constraint === 'MSO' && (cd = startIdx(t.constraintDate)) != null) es = cd;
+        if (t.constraint === 'MFO' && (cd = finishIdx(t.constraintDate)) != null) es = cd - sp;
+      }
+      if (es < fromLinks - 1e-9) conflict[i] = 'The ' + M.CONSTRAINTS[t.constraint] + ' date is earlier than its predecessors allow';
+      es = Math.max(0, es) + (isAlap(t) ? 0 : +t.levelDelay || 0);
+      if (t.elapsed) sp = spanFor(i, es);
+    }
     if (t.actualStart && (cd = startIdx(t.actualStart)) != null) es = cd;
     ES[i] = es;
     EF[i] = es + sp;
@@ -473,7 +611,7 @@ OP.schedule = function (p, opts) {
   });
 
   var projEF = 0;
-  leaves.forEach(function (i) { if (EF[i] > projEF) projEF = EF[i]; });
+  leaves.forEach(function (i) { if (act(i) && EF[i] > projEF) projEF = EF[i]; });
 
   // Backward pass: late start / late finish (constraints and deadlines can only pull late dates earlier).
   var LS = {}, LF = {};
@@ -482,10 +620,10 @@ OP.schedule = function (p, opts) {
     succs[li].forEach(function (e) {
       if (LS[e.to] == null) return;
       var c;
-      if (e.type === 'FS') c = LS[e.to] - e.lag;
-      else if (e.type === 'SS') c = LS[e.to] - e.lag + sp2;
-      else if (e.type === 'FF') c = LF[e.to] - e.lag;
-      else c = LF[e.to] - e.lag + sp2;
+      if (e.type === 'FS') c = LS[e.to] - e.eff;
+      else if (e.type === 'SS') c = LS[e.to] - e.eff + sp2;
+      else if (e.type === 'FF') c = LF[e.to] - e.eff;
+      else c = LF[e.to] - e.eff + sp2;
       if (c < lf) lf = c;
     });
     if (t2.constraintDate) {
@@ -503,14 +641,14 @@ OP.schedule = function (p, opts) {
   leaves.forEach(function (i) { ES0[i] = ES[i]; });
   for (var a = order.length - 1; a >= 0; a--) {
     var ai = order[a];
-    if (tasks[ai].constraint !== 'ALAP' || tasks[ai].actualStart || cyclic[ai]) continue;
+    if (!isAlap(tasks[ai]) || tasks[ai].mode === 'manual' || tasks[ai].actualStart || cyclic[ai]) continue;
     var asp = EF[ai] - ES[ai], limit = projEF;
     succs[ai].forEach(function (e) {
       var c;
-      if (e.type === 'FS') c = ES[e.to] - e.lag;
-      else if (e.type === 'SS') c = ES[e.to] - e.lag + asp;
-      else if (e.type === 'FF') c = EF[e.to] - e.lag;
-      else c = EF[e.to] - e.lag + asp;
+      if (e.type === 'FS') c = ES[e.to] - e.eff;
+      else if (e.type === 'SS') c = ES[e.to] - e.eff + asp;
+      else if (e.type === 'FF') c = EF[e.to] - e.eff;
+      else c = EF[e.to] - e.eff + asp;
       limit = Math.min(limit, c);
     });
     limit -= +tasks[ai].levelDelay || 0;
@@ -523,10 +661,10 @@ OP.schedule = function (p, opts) {
     var fs = projEF - EF[i];
     succs[i].forEach(function (e) {
       var c;
-      if (e.type === 'FS') c = ES[e.to] - e.lag - EF[i];
-      else if (e.type === 'SS') c = ES[e.to] - e.lag - ES[i];
-      else if (e.type === 'FF') c = EF[e.to] - e.lag - EF[i];
-      else c = EF[e.to] - e.lag - ES[i];
+      if (e.type === 'FS') c = ES[e.to] - e.eff - EF[i];
+      else if (e.type === 'SS') c = ES[e.to] - e.eff - ES[i];
+      else if (e.type === 'FF') c = EF[e.to] - e.eff - EF[i];
+      else c = EF[e.to] - e.eff - ES[i];
       fs = Math.min(fs, c);
     });
     FS[i] = Math.max(0, fs);
@@ -560,8 +698,16 @@ OP.schedule = function (p, opts) {
     r.es = ES[r.i]; r.ef = EF[r.i]; r.ls = LS[r.i]; r.lf = LF[r.i]; r.freeSlack = FS[r.i]; r.esEarly = ES0[r.i];
     r.cost = 0; r.work = 0; r.cyclic = !!cyclic[r.i]; r.conflict = conflict[r.i] || '';
     r.material = {};
+    r.inactive = !r.summary && !act(r.i);
+    r.manual = !r.summary && t.mode === 'manual';
+    r.elapsed = !r.summary && !!t.elapsed && !t.milestone;
     if (r.summary) return;
     r.segs = segments(r.i);
+    if (r.inactive) {
+      // Inactive tasks stay in the plan but carry no work, cost or progress.
+      r.actualCost = 0; r.actualWork = 0; r.bcws = 0; r.bcwp = 0; r.acwp = 0; r.late = false;
+      return;
+    }
     var d = dur(r.i), flat = +t.fixedCost || 0;
     t.assignments.forEach(function (as) {
       var res = resByUid[as.res], ag = agg[as.res];
@@ -625,8 +771,13 @@ OP.schedule = function (p, opts) {
     sr.es = Infinity; sr.ef = -Infinity; sr.ls = Infinity; sr.lf = -Infinity;
     sr.actualCost = 0; sr.actualWork = 0; sr.bcws = 0; sr.bcwp = 0; sr.acwp = 0; sr.late = false;
     sr.cost = +sr.task.fixedCost || 0;
+    // A summary spans its active subtasks; if every subtask is inactive it spans them all.
+    var activeKids = sr.children.filter(function (c) { return !rows[c].inactive; });
+    sr.inactive = !activeKids.length;
+    sr.manual = false; sr.elapsed = false;
     sr.children.forEach(function (c) {
       var cr = rows[c];
+      if (!sr.inactive && cr.inactive) { sr.cost += cr.cost; return; }
       sr.es = Math.min(sr.es, cr.es); sr.ef = Math.max(sr.ef, cr.ef);
       sr.ls = Math.min(sr.ls, cr.ls); sr.lf = Math.max(sr.lf, cr.lf);
       sr.cost += cr.cost; sr.work += cr.work; sr.actualCost += cr.actualCost; sr.actualWork += cr.actualWork;
@@ -640,8 +791,12 @@ OP.schedule = function (p, opts) {
   rows.forEach(function (r) {
     var t = r.task;
     r.duration = r.summary ? r.ef - r.es : dur(r.i);
-    r.slack = r.summary ? Math.min.apply(null, r.leaves.map(function (l) { return LS[l] - ES[l]; })) : r.ls - r.es;
-    r.critical = r.slack <= 1e-9;
+    // Duration as the user entered it: calendar days for elapsed tasks, working days otherwise.
+    r.shown = r.elapsed ? +t.duration || 0 : r.duration;
+    var slackLeaves = r.leaves.filter(act);
+    if (!slackLeaves.length) slackLeaves = r.leaves;
+    r.slack = r.summary ? Math.min.apply(null, slackLeaves.map(function (l) { return LS[l] - ES[l]; })) : r.ls - r.es;
+    r.critical = !r.inactive && r.slack <= (+p.criticalSlack || 0) + 1e-9;
     r.milestone = !r.summary && r.duration === 0;
     r.startDn = r.milestone && r.es > 0 ? cal.date(Math.ceil(r.es) - 1) : cal.date(r.es);
     r.finishDn = r.ef - r.es > 0 ? cal.date(Math.ceil(r.ef) - 1) : r.startDn;
@@ -668,7 +823,7 @@ OP.schedule = function (p, opts) {
   });
   function summaryPercent(r) {
     var tot = 0, done = 0;
-    r.leaves.forEach(function (l) { var d = dur(l) || 0; tot += d; done += d * (+tasks[l].percent || 0) / 100; });
+    r.leaves.filter(act).forEach(function (l) { var d = dur(l) || 0; tot += d; done += d * (+tasks[l].percent || 0) / 100; });
     return tot ? Math.round(done / tot * 100) : 0;
   }
 
@@ -690,7 +845,7 @@ OP.schedule = function (p, opts) {
     resStats[res.uid] = { peak: peak, overDays: overDays.sort(function (x, y) { return x - y; }), over: overDays.length > 0, work: ag.work, cost: ag.cost, qty: ag.qty, capOn: capOn };
   });
   rows.forEach(function (r) {
-    r.over = !r.summary && r.task.assignments.some(function (a) {
+    r.over = !r.summary && !r.inactive && r.task.assignments.some(function (a) {
       var st = resStats[a.res];
       return st && st.over && r.segs.some(function (sg) {
         return st.overDays.some(function (d) { return d >= Math.floor(sg[0]) && d < Math.ceil(sg[1]); });
@@ -701,7 +856,7 @@ OP.schedule = function (p, opts) {
   // Project-level earned value.
   var ev = { bac: 0, bcws: 0, bcwp: 0, acwp: 0 };
   rows.forEach(function (r) {
-    if (r.summary) return;
+    if (r.summary || r.inactive) return;
     ev.bcws += r.bcws; ev.bcwp += r.bcwp; ev.acwp += r.acwp;
     if (r.base) ev.bac += r.base.cost;
   });
@@ -719,8 +874,46 @@ OP.schedule = function (p, opts) {
     statusDn: status,
     startDn: cal.date(0),
     finishDn: hasTasks ? (projEF > 0 ? cal.date(Math.ceil(projEF) - 1) : cal.date(0)) : cal.date(0),
-    totalCost: totalCost, totalWork: totalWork
+    totalCost: totalCost, totalWork: totalWork,
+    fromFinish: alapAll
   };
+}
+
+// Schedule from the project start, or, when the project is set to schedule from its finish date,
+// find the start that makes the last task end on that date and push every task as late as it can go.
+OP.schedule = function (p, opts) {
+  opts = opts || {};
+  var fin = p.scheduleFrom === 'finish' && !opts.cycleOnly ? OP.util.parseDate(p.finishDate) : null;
+  if (fin == null) return scheduleCore(p, opts);
+  var cal = new OP.Calendar(fin, p.holidays, p.workDays, p.exceptions);
+  var last = fin, guard = 0;
+  while (!cal.isWorking(last) && guard++ < 3660) last--;
+  // Move a working day number by k working days (negative = earlier).
+  function shift(dn, k) {
+    var dir = k < 0 ? -1 : 1;
+    for (k = Math.abs(k); k > 0; ) { dn += dir; if (cal.isWorking(dn)) k--; }
+    return dn;
+  }
+  function workdaysBetween(a, b) { // signed working days from a to b
+    var dir = b < a ? -1 : 1, n = 0;
+    for (var d = a; d !== b; d += dir) { if (cal.isWorking(d + (dir > 0 ? 1 : 0))) n += dir; }
+    return n;
+  }
+  var o = {};
+  for (var key in opts) o[key] = opts[key];
+  o.alapAll = true;
+  // Start from a trial run to learn the plan's length, then correct for holidays and constraints.
+  o.startOverride = last;
+  var s = scheduleCore(p, o);
+  var start = shift(last, -Math.max(Math.ceil(s.duration), 1) + 1);
+  for (var pass = 0; pass < 6; pass++) {
+    o.startOverride = start;
+    s = scheduleCore(p, o);
+    var diff = workdaysBetween(s.finishDn, last);
+    if (!diff) break;
+    start = shift(start, diff);
+  }
+  return s;
 };
 
 /* ---------- baseline and resource leveling ---------- */
@@ -752,17 +945,19 @@ function levelPass(p, movedSet, s) {
   var resByUid = {}, usage = {}, placed = {}, n = 0;
   p.resources.forEach(function (r) { resByUid[r.uid] = r; usage[r.uid] = {}; });
   s = s || OP.schedule(p);
-  var leaves = s.rows.filter(function (r) { return !r.summary; });
+  var finishPlan = p.scheduleFrom === 'finish' && !!OP.util.parseDate(p.finishDate);
+  var isAlap = function (t) { return finishPlan || t.constraint === 'ALAP'; };
+  var leaves = s.rows.filter(function (r) { return !r.summary && !r.inactive; });
   var predsOf = {};
   s.edges.forEach(function (e) { (predsOf[e.to] = predsOf[e.to] || []).push(e.from); });
   while (n++ < leaves.length) {
     var ready = s.rows.filter(function (r) {
-      return !r.summary && !placed[r.i] && (predsOf[r.i] || []).every(function (q) { return placed[q]; });
+      return !r.summary && !r.inactive && !placed[r.i] && (predsOf[r.i] || []).every(function (q) { return placed[q]; });
     });
-    if (!ready.length) ready = s.rows.filter(function (r) { return !r.summary && !placed[r.i]; });
+    if (!ready.length) ready = s.rows.filter(function (r) { return !r.summary && !r.inactive && !placed[r.i]; });
     if (!ready.length) break;
     ready.sort(function (a, b) {
-      var la = a.task.constraint === 'ALAP' ? 1 : 0, lb = b.task.constraint === 'ALAP' ? 1 : 0;
+      var la = isAlap(a.task) ? 1 : 0, lb = isAlap(b.task) ? 1 : 0;
       return (la - lb) || (a.es - b.es) || (b.task.priority - a.task.priority) || (a.slack - b.slack) || (a.id - b.id);
     });
     var r = ready[0], t = r.task;
@@ -770,9 +965,9 @@ function levelPass(p, movedSet, s) {
       var res = resByUid[a.res];
       return res && res.kind === 'Work' && a.units <= res.maxUnits;
     });
-    var fixed = t.actualStart || t.constraint === 'MSO' || t.constraint === 'MFO' || t.percent > 0;
+    var fixed = t.actualStart || t.constraint === 'MSO' || t.constraint === 'MFO' || t.percent > 0 || t.mode === 'manual';
     var rel = r.segs.map(function (sg) { return [sg[0] - r.es, sg[1] - r.es]; });
-    var alap = t.constraint === 'ALAP', dir = alap ? -1 : 1, maxK = alap ? Math.floor(r.es - (r.esEarly || 0)) : 520;
+    var alap = isAlap(t), dir = alap ? -1 : 1, maxK = alap ? Math.floor(r.es - (r.esEarly || 0)) : 520;
     var fits = function (k) {
       return work.every(function (a) {
         var st = s.resStats[a.res], U = usage[a.res];

@@ -1,6 +1,8 @@
 export type LinkType = 'FS' | 'SS' | 'FF' | 'SF';
 
-export interface Link { uid: number; type: LinkType; lag: number }
+export type LagUnit = 'd' | '%' | 'ed';
+export interface Link { uid: number; type: LinkType; lag: number; unit?: LagUnit }
+export interface CalException { name: string; from: string; to: string; working: boolean }
 export interface Assignment { res: number; units: number }
 export interface Split { at: number; gap: number }
 
@@ -26,6 +28,11 @@ export interface Task {
   levelDelay: number;
   priority: number;
   custom: Record<string, string | number>;
+  mode: 'auto' | 'manual';
+  active: boolean;
+  manualStart: string;
+  manualFinish: string;
+  elapsed: boolean;
 }
 
 export interface Resource {
@@ -60,6 +67,11 @@ export interface Project {
   currency: string;
   hoursPerDay: number;
   holidays: string[];
+  workDays: number[];
+  exceptions: CalException[];
+  scheduleFrom: 'start' | 'finish';
+  finishDate: string;
+  criticalSlack: number;
   customFields: CustomField[];
   baseline: { savedAt: string; tasks: Record<number, any> } | null;
   nextUid: number;
@@ -83,6 +95,10 @@ export interface Row {
   critical: boolean;
   milestone: boolean;
   duration: number;
+  shown: number;
+  elapsed: boolean;
+  manual: boolean;
+  inactive: boolean;
   startDn: number;
   finishDn: number;
   percent: number;
@@ -126,7 +142,7 @@ export interface Calendar {
 
 export interface Schedule {
   rows: Row[];
-  edges: { from: number; to: number; type: LinkType; lag: number }[];
+  edges: { from: number; to: number; type: LinkType; lag: number; unit: LagUnit; eff: number }[];
   cal: Calendar;
   load: Record<number, Record<number, number>>;
   contrib: Record<number, Record<number, number[]>>;
@@ -140,6 +156,7 @@ export interface Schedule {
   finishDn: number;
   totalCost: number;
   totalWork: number;
+  fromFinish: boolean;
 }
 
 export type ViewName = 'gantt' | 'board' | 'network' | 'wbs' | 'resources' | 'org' | 'workload' | 'budget' | 'reports';

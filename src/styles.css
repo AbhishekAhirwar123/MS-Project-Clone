@@ -1,5 +1,5 @@
-/* OpenPlan — classic Microsoft Project / Office look. */
-*, *::before, *::after { border-radius: 0; }
+/* OpenPlan: a Microsoft Project style workspace. Tables and the Gantt stay square and dense; controls, panels and dialogs are softly rounded. */
+:root { --r: 4px; --r-lg: 8px; }
 
 :root {
   --brand: #1e1b4b;
@@ -11,16 +11,16 @@
   --on-brand: #ffffff;
   --title-text: var(--on-brand);
   --bg: #ffffff;
-  --app: #e7e9ef;
+  --app: #eceef4;
   --ribbon: #f5f6fa;
   --surface: #ffffff;
-  --surface-2: #f4f5f9;
-  --surface-3: #e9ebf1;
-  --border: #d6d9e2;
-  --border-strong: #a9aebd;
-  --grid-line: #e0e3ea;
-  --text: #1f2233;
-  --text-muted: #636a7e;
+  --surface-2: #f5f6fb;
+  --surface-3: #eaecf3;
+  --border: #dde0e9;
+  --border-strong: #b3b8c7;
+  --grid-line: #e4e7ee;
+  --text: #1b1f2e;
+  --text-muted: #5f667a;
   --accent: #4f46e5;
   --accent-hover: #4338ca;
   --accent-soft: #eef0ff;
@@ -49,7 +49,7 @@
   --c3: #f59e0b;
   --c4: #e11d48;
   --shadow: 0 1px 2px rgba(15, 17, 40, 0.08);
-  --shadow-lg: 0 6px 18px rgba(15, 17, 40, 0.22);
+  --shadow-lg: 0 10px 30px rgba(15, 17, 40, 0.2), 0 2px 6px rgba(15, 17, 40, 0.12);
   --tl-0-bg: #e0e3ff; --tl-0-edge: #a5acf5; --tl-0-text: #1e1b4b;
   --tl-1-bg: #ccf2ec; --tl-1-edge: #7dd3c8; --tl-1-text: #134e4a;
   --tl-2-bg: #fde6c4; --tl-2-edge: #f5b35a; --tl-2-text: #5a3408;
@@ -57,7 +57,7 @@
   --group-row: #fff2cc;
   --heat-1: #e8eaff; --heat-2: #c9cdfb; --heat-3: #a5acf5; --heat-over: #ffe0e6; --heat-over-text: #9f1239;
   --overalloc: #e36c09;
-  --fs-2xs: 10.5px; --fs-xs: 11px; --fs-sm: 11.5px; --fs-base: 12px; --fs-md: 13px; --fs-lg: 14px;
+  --fs-2xs: 10.5px; --fs-xs: 11px; --fs-sm: 12px; --fs-base: 12.5px; --fs-md: 13.5px; --fs-lg: 14px;
   --fs-xl: 15px; --fs-2xl: 16px; --fs-3xl: 18px; --fs-4xl: 22px; --fs-5xl: 28px;
   --row: 24px;
   --hdr: 40px;
@@ -70,8 +70,8 @@
 
 :root[data-theme="dark"] {
   --brand: #15132f; --brand-dark: #0d0c1f; --brand-fg: var(--accent);
-  --bg: #16171f; --app: #111218; --ribbon: #1d1e28; --surface: #1a1b24; --surface-2: #232431; --surface-3: #2c2d3c;
-  --border: #363849; --border-strong: #4d5066; --grid-line: #2b2d3b; --text: #e6e7ef; --text-muted: #9a9db0;
+  --bg: #15161e; --app: #10111a; --ribbon: #1d1e28; --surface: #1b1c26; --surface-2: #232434; --surface-3: #2d2e40;
+  --border: #353748; --border-strong: #53566e; --grid-line: #2a2c3b; --text: #e8e9f1; --text-muted: #a0a3b8;
   --accent: #8b85ff; --accent-hover: #a5a0ff; --accent-soft: #26244a; --accent-text: #0e0d24;
   --hover: #2a2850; --hover-strong: #34316a; --pressed: #423e85; --sel-row: #26244a;
   --bar: #2a9d8f; --bar-edge: #5eead4; --bar-progress: #ccfbf1;
@@ -87,7 +87,7 @@
   color-scheme: dark;
 }
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 html, body { height: 100%; }
 body {
   margin: 0; background: var(--bg); color: var(--text); font: var(--fs-base)/1.4 var(--font);
@@ -100,9 +100,18 @@ svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
 .spacer { flex: 1; }
 .nowrap { white-space: nowrap; }
 
+/* ---------- rounded controls and panels ---------- */
+.btn, .rb, .rtab, .rb-collapse, .icon-btn, .qat-btn, .title-btn, .title-inp, select.sel, input.inp, textarea.inp, .menu button, .chk,
+.sb-views button, .swatch, .split-btns button, .rselect select, .bs-tile, .bs-card, .bs-item, .lp-btn, .caret, .rpt-nav button, .kbd, kbd { border-radius: var(--r); }
+.menu, dialog, .card, .toast, .guide, .rgroup, .board-card, .board-col, .kpi, .paper, .stats, .timeline, .tl-track, .bs-thumb, .lp-shot, .note-card, .alert.inline, .ribbon.min.peek { border-radius: var(--r-lg); }
+.stats, .guide, .board-col { overflow: hidden; }
+.seg { border-radius: var(--r); overflow: hidden; }
+.chip { border-radius: 999px; }
+.tl-seg { border-radius: var(--r); }
+
 /* ---------- title bar ---------- */
 .titlebar {
-  height: 32px; flex: none; display: flex; align-items: center; background: var(--brand); color: var(--title-text); padding: 0 6px; gap: 8px; user-select: none;
+  height: 32px; flex: none; display: flex; align-items: center; background: linear-gradient(180deg, var(--brand), var(--brand-dark)); color: var(--title-text); padding: 0 6px; gap: 8px; user-select: none;
 }
 .qat, .tb-right { display: flex; align-items: center; gap: 2px; }
 .app-icon { width: 20px; height: 20px; margin: 0 6px 0 2px; object-fit: contain; }
@@ -122,7 +131,7 @@ img.logo { object-fit: contain; }
 .rtab svg.i { width: 15px; height: 15px; color: var(--accent); }
 .rtab.file svg.i { color: inherit; }
 .rtab:hover { background: var(--surface-2); color: var(--text); }
-.rtab.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.rtab.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
 .rtab.file { background: var(--accent); color: var(--accent-text); font-weight: 600; margin-right: 8px; }
 .rtab.file:hover { background: var(--accent-hover); color: var(--accent-text); }
 .rtab-fill { flex: 1; }
@@ -136,9 +145,9 @@ img.logo { object-fit: contain; }
 .ribbon-wrap { flex: none; position: relative; z-index: 40; }
 .ribbon.min { display: none; }
 .ribbon.min.peek { display: flex; position: absolute; left: 0; right: 0; top: 100%; box-shadow: var(--shadow-lg); }
-.rgroup { display: flex; flex-direction: column; background: var(--surface-2); padding: 4px 6px 0; flex: none; }
+.rgroup { display: flex; flex-direction: column; background: var(--surface-2); border: 1px solid var(--border); padding: 4px 6px 0; flex: none; }
 .rg-body { flex: 1; display: flex; align-items: flex-start; gap: 2px; }
-.rg-label { height: 18px; text-align: center; font-size: var(--fs-2xs); color: var(--text-muted); white-space: nowrap; line-height: 18px; }
+.rg-label { height: 18px; text-align: center; font-size: var(--fs-2xs); color: var(--text-muted); white-space: nowrap; line-height: 18px; letter-spacing: 0.03em; text-transform: uppercase; }
 .rstack { display: flex; flex-direction: column; gap: 1px; justify-content: flex-start; }
 .rrow { display: flex; gap: 2px; align-items: center; }
 .rb { border: 1px solid transparent; background: transparent; cursor: pointer; color: var(--text); display: inline-flex; align-items: center; transition: background 0.12s; }
@@ -276,12 +285,14 @@ select.sel:focus, input.inp:focus, textarea.inp:focus { outline: none; border-co
 .split-btns .flip svg.i { transform: rotate(180deg); }
 
 table.grid { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; table-layout: fixed; }
-table.grid th { position: sticky; top: 0; z-index: 2; height: var(--hdr); background: var(--surface-2); text-align: left; font-weight: 400; color: var(--text); padding: 0 5px 4px; border-bottom: 1px solid var(--border-strong); border-right: 1px solid var(--grid-line); white-space: nowrap; vertical-align: bottom; font-size: var(--fs-sm); }
+table.grid th { position: sticky; top: 0; z-index: 2; height: var(--hdr); background: var(--surface-2); text-align: left; font-weight: 600; color: var(--text-muted); padding: 0 5px 4px; border-bottom: 1px solid var(--border-strong); border-right: 1px solid var(--grid-line); white-space: nowrap; vertical-align: bottom; font-size: var(--fs-sm); }
 table.grid th.num { text-align: right; }
 table.grid td { height: var(--row); padding: 0; border-bottom: 1px solid var(--grid-line); border-right: 1px solid var(--grid-line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--surface); }
-table.grid tr.sel td { background: var(--sel-row); }
+table.grid tbody tr:hover td { background: var(--hover); }
+table.grid tbody tr:hover td.id { background: var(--surface-3); }
+table.grid tr.sel td, table.grid tr.sel:hover td { background: var(--sel-row); }
 table.grid td.id { text-align: center; color: var(--text); font-size: var(--fs-xs); cursor: pointer; user-select: none; background: var(--surface-2); border-right-color: var(--border); }
-table.grid tr.sel td.id { background: var(--brand-mid); font-weight: 600; }
+table.grid tr.sel td.id, table.grid tr.sel:hover td.id { background: var(--brand-mid); font-weight: 600; }
 table.grid td.ro { padding: 0 5px; font-variant-numeric: tabular-nums; }
 table.grid td.num { text-align: right; }
 table.grid td.ind { text-align: center; }
@@ -291,6 +302,7 @@ table.grid input.cell:disabled { color: var(--text); }
 table.grid input.cell.num { text-align: right; }
 table.grid input.cell[type="date"] { padding: 0 2px; font-size: var(--fs-sm); }
 table.grid tr.summary input.name, table.grid tr.summary td.ro { font-weight: 700; }
+table.grid tr.inactive td, table.grid tr.inactive input { color: var(--text-muted); text-decoration: line-through; }
 table.grid tr.newrow input { color: var(--text-muted); font-style: italic; }
 table.grid tr.newrow input:focus { font-style: normal; color: var(--text); }
 table.grid tr.grouprow td { background: var(--group-row); height: var(--row); padding: 0 4px; }
@@ -327,9 +339,10 @@ aside.drawer.open { display: flex; }
 .section-title { display: flex; align-items: center; justify-content: space-between; font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: 2px; margin-top: 4px; color: var(--brand-fg); }
 .mini-list { display: flex; flex-direction: column; gap: 4px; }
 .mini-row { display: grid; gap: 4px; align-items: center; }
-.mini-row.pred { grid-template-columns: 1fr 56px 52px 26px; }
+.mini-row.pred { grid-template-columns: 1fr 52px 48px 68px 26px; }
 .mini-row.asg { grid-template-columns: 1fr 92px 26px; }
 .mini-row.cf { grid-template-columns: 1fr 96px 26px; }
+.mini-row.exc { grid-template-columns: 1fr 128px 128px 92px 26px; }
 .mini-row.split { grid-template-columns: auto 52px auto 52px auto 26px; }
 .mini-row .inp, .mini-row .sel { height: 24px; min-width: 0; }
 .unit-inp { position: relative; display: block; }

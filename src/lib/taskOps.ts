@@ -1,6 +1,5 @@
 import OP from '../core';
-import { ask, S, focusKey, rowByUid } from '../store';
-import type { Project, Task } from '../types';
+import { ask, S, focusKey, rowByUid } from '../store';import type { Project, Task } from '../types';
 
 const U = OP.util, M = OP.model;
 
@@ -19,11 +18,15 @@ function scaleUnits(p: Project, t: Task, f: number) {
   });
 }
 
-export function setDuration(p: Project, t: Task, d: number) {
+// `elapsed` durations are calendar days ("3ed"); they run through weekends and holidays.
+export function setDuration(p: Project, t: Task, d: number, elapsed = false) {
   const old = +t.duration || 0;
-  if (t.type === 'FixedWork' && old > 0 && d > 0 && M.workUnits(p, t) > 0) scaleUnits(p, t, old / d);
+  if (t.type === 'FixedWork' && old > 0 && d > 0 && !elapsed && !t.elapsed && M.workUnits(p, t) > 0) scaleUnits(p, t, old / d);
   t.duration = d;
+  t.elapsed = elapsed && d > 0;
   t.milestone = d === 0;
+  // A manual task's typed finish date would override the new duration.
+  if (t.mode === 'manual') t.manualFinish = '';
 }
 
 export function setWork(p: Project, t: Task, hours: number): string {
@@ -264,6 +267,64 @@ export function levelAll() {
   if (!res || (!res.moved && !res.unresolved.length)) st.toast('No overallocations to level.');
   else if (res.unresolved.length) st.toast('Leveled ' + res.moved + ' tasks. Still overallocated: ' + res.unresolved.join(', ') + ' (assigned above max units, or on tasks that cannot move: started, in progress or Must start/finish on)', true);
   else st.toast('Leveled — delayed ' + res.moved + ' task' + (res.moved === 1 ? '' : 's'));
+}
+
+/* ---------- task mode, active state, typed dates ---------- */
+
+// Selected tasks plus everything under a selected summary.
+function selectedWithChildren(p: Project): number[] {
+  const out: number[] = [];
+  selectedBlocks(p).forEach(i => { for (let k = i; k < M.subtreeEnd(p, i); k++) out.push(p.tasks[k].uid); });
+  return out;
+}
+
+// Manually scheduled tasks keep the dates typed into them; switching one on freezes the dates it has now.
+export function setMode(mode: 'auto' | 'manual') {
+  const st = S(), rows = st.sel.map(rowByUid).filter((r: any) => r && !r.summary);
+  if (!rows.length) { st.toast('Select one or more tasks first (summary tasks always follow their subtasks).'); return; }
+  st.commit(p => {
+    rows.forEach((r: any) => {
+      const t = findTask(p, r.task.uid);
+      if (mode === 'manual') {
+        t.mode = 'manual';
+        t.manualStart = U.iso(r.startDn);
+        t.manualFinish = '';
+      } else {
+        // Keep the length the task had while manual (it may have come from typed start and finish dates).
+        if (t.manualFinish && !t.elapsed) t.duration = r.duration;
+        t.mode = 'auto';
+        t.manualStart = '';
+        t.manualFinish = '';
+      }
+    });
+  });
+  st.toast(mode === 'manual' ? 'Manually scheduled: links and constraints no longer move ' + (rows.length > 1 ? 'these tasks' : 'this task') : 'Auto scheduled: dates follow links and constraints again');
+}
+
+// Inactive tasks stay in the plan, but their dates, cost, work and links stop counting.
+export function setActive(active: boolean) {
+  const st = S();
+  if (!st.sel.length) { st.toast('Select one or more tasks first.'); return; }
+  st.commit(p => {
+    const set = new Set(selectedWithChildren(p));
+    p.tasks.forEach(t => { if (set.has(t.uid)) t.active = active; });
+  });
+}
+
+// Typing a Start or Finish date: manual tasks store it as typed; auto tasks get a Start/Finish No Earlier Than constraint.
+export function setTaskDate(uid: number, which: 'start' | 'finish', iso: string) {
+  const st = S();
+  if (!rowByUid(uid)) return;
+  if (U.parseDate(iso) == null) { st.toast('Enter a valid date.', true); return; }
+  st.commit(p => {
+    const t = findTask(p, uid);
+    if (t.mode === 'manual') {
+      if (which === 'start') t.manualStart = iso; else t.manualFinish = iso;
+    } else {
+      t.constraint = which === 'start' ? 'SNET' : 'FNET';
+      t.constraintDate = iso;
+    }
+  });
 }
 
 export function clearLeveling() { S().commit(p => { p.tasks.forEach(t => { t.levelDelay = 0; }); }); }

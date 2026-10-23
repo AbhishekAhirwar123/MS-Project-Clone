@@ -51,11 +51,19 @@ function commitCell(k: string, uid: number, v: string): boolean | void {
   if (k === 'name') { edit(t => { t.name = v; }); return; }
   if (k === 'preds') return ops.setPreds(uid, v);
   if (k === 'duration') {
-    const d = M.parseDuration(v, st.p.hoursPerDay);
-    if (d == null) { st.toast('Enter a duration like 5, 5d, 2w or 16h.', true); return false; }
-    edit((t, p) => { ops.setDuration(p, t, d); });
+    const d = M.parseDurationEx(v, st.p.hoursPerDay);
+    if (d == null) { st.toast('Enter a duration like 5, 5d, 2w, 16h, 1mo or 3ed (elapsed).', true); return false; }
+    edit((t, p) => { ops.setDuration(p, t, d.days, d.elapsed); });
     return;
   }
+  if (k === 'start' || k === 'finish') {
+    const dn = U.parseLoose(v);
+    if (dn == null) { st.toast('Enter a date like 5 Jan 26, 2026-01-05 or 05/01/2026 (day first).', true); return false; }
+    ops.setTaskDate(uid, k, U.iso(dn));
+    return;
+  }
+  if (k === 'mode') { st.select([uid], uid); ops.setMode(v === 'manual' ? 'manual' : 'auto'); return; }
+  if (k === 'active') { st.select([uid], uid); ops.setActive(v !== 'no'); return; }
   if (k === 'work') {
     const hrs = parseFloat(v.replace(/[^\d.]/g, ''));
     if (!isFinite(hrs)) { st.toast('Enter work in hours, e.g. 40.', true); return false; }
@@ -130,6 +138,8 @@ function Indicators({ st, r }: { st: Store; r: Row }) {
   const t = r.task, out: JSX.Element[] = [];
   if (st.critical && r.critical && !r.summary) out.push(<span key="c" className="crit" title="On the critical path"><Icon name="flag" /></span>);
   if (r.over) out.push(<span key="o" className="over" title="A resource on this task is overallocated"><Icon name="alert" /></span>);
+  if (r.inactive && !r.summary) out.push(<span key="i" title="Inactive: kept in the plan but not counted"><Icon name="ban" /></span>);
+  if (r.manual) out.push(<span key="m" title="Manually scheduled: links and constraints do not move this task"><Icon name="hand" /></span>);
   if (r.conflict) out.push(<span key="x" className="crit" title={r.conflict}><Icon name="alert" /></span>);
   if (r.missedDeadline) out.push(<span key="d" className="crit" title="Finishes after its deadline"><Icon name="deadline" /></span>);
   if (!r.summary && t.constraint !== 'ASAP') out.push(<span key="p" title={M.CONSTRAINTS[t.constraint] + (t.constraintDate ? ' ' + U.fmt(U.parseDate(t.constraintDate)) : '')}><Icon name="pin" /></span>);
@@ -172,7 +182,7 @@ function Cell({ st, k, r, idx }: { st: Store; k: string; r: Row; idx: any }) {
       onFocus={focusSel} onCommit={v => commitCell('preds', uid, v)} onNav={d => navFrom(uid, 'preds', d)} /></td>;
   }
   const ro = !c.edit || (r.summary && c.sumRo);
-  const fieldVal = c.field ? String((t as unknown as Record<string, unknown>)[c.field] ?? '') : '';
+  const fieldVal = c.editValue ? c.editValue(r) : c.field ? String((t as unknown as Record<string, unknown>)[c.field] ?? '') : '';
   const val = c.get ? c.get(r) : c.cf ? (t.custom[c.cf] == null ? '' : String(t.custom[c.cf])) : fieldVal;
   if (ro) return <td className={'ro' + (c.num ? ' num' : '')}>{val}</td>;
   const fk = uid + ':' + k, label = 'Task ' + r.id + ' ' + c.t;
@@ -205,7 +215,7 @@ function Grid({ st, list }: { st: Store; list: (Row | GroupItem)[] }) {
               </td></tr>
             )
             : (
-              <tr key={item.task.uid} className={(selSet.has(item.task.uid) ? 'sel ' : '') + (item.summary ? 'summary' : '')}>
+              <tr key={item.task.uid} className={(selSet.has(item.task.uid) ? 'sel ' : '') + (item.summary ? 'summary ' : '') + (item.inactive ? 'inactive' : '')}>
                 {ks.map(k => <Cell key={k} st={st} k={k} r={item} idx={idx} />)}
               </tr>
             ))}
@@ -299,6 +309,15 @@ function dragEnd(e: PointerEvent) {
     if (t0.actualStart) {
       st.commit(p => { ops.findTask(p, uid).actualStart = U.iso(ns); });
       report('Actual start moved to ' + U.fmt(ns));
+    } else if (t0.mode === 'manual') {
+      // Manual tasks go exactly where they are dropped; their length is kept.
+      st.commit(p => {
+        const t = ops.findTask(p, uid);
+        if (t.manualFinish && !t.elapsed) t.duration = r.duration;
+        t.manualFinish = '';
+        t.manualStart = U.iso(ns);
+      });
+      st.toast('Manually scheduled to start ' + U.fmt(ns));
     } else if (t0.constraint === 'MSO' || t0.constraint === 'MFO') {
       // Hard constraints move with the bar instead of being replaced.
       st.commit(p => {
@@ -318,8 +337,9 @@ function dragEnd(e: PointerEvent) {
     if (!days) return;
     const nf = Math.max(r.startDn, r.finishDn + days);
     const gaps = (r.task.splits || []).reduce((a: number, sp: any) => a + (sp.at > 0 && sp.at < r.duration ? +sp.gap || 0 : 0), 0);
-    const nd = Math.max(1, cal.finishIndex(nf) - cal.indexOf(r.startDn) - gaps);
-    st.commit(p => { ops.setDuration(p, ops.findTask(p, uid), nd); });
+    // Elapsed tasks are measured in calendar days, so dragging the edge changes that count directly.
+    const nd = r.elapsed ? Math.max(1, nf - r.startDn + 1) : Math.max(1, cal.finishIndex(nf) - cal.indexOf(r.startDn) - gaps);
+    st.commit(p => { ops.setDuration(p, ops.findTask(p, uid), nd, r.elapsed); });
   }
 }
 

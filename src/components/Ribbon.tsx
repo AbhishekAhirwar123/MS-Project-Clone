@@ -151,6 +151,7 @@ function ColumnsMenu({ st }: { st: Store }) {
 
 function TaskTab({ st }: { st: Store }) {
   const noSel = !st.sel.length;
+  const allInactive = !noSel && st.sel.every(u => st.s.rows.find((r: any) => r.task.uid === u)?.inactive);
   const viewBtn = (v: ViewName, icon: string, label: ReactNode) => <Big icon={icon} label={label} on={st.view === v} onClick={() => st.setView(v)} />;
   return <>
     <Group label="View">{viewBtn('gantt', 'gantt', <>Gantt<br />Chart</>)}</Group>
@@ -164,6 +165,13 @@ function TaskTab({ st }: { st: Store }) {
           <Ico icon="unlink" title="Unlink Tasks" disabled={noSel} onClick={ops.unlinkSelected} />
         </RowBox>
         <RowBox><Small icon="check" label="Mark on Track" onClick={ops.updateAsScheduled} /></RowBox>
+      </Stack>
+    </Group>
+    <Group label="Mode">
+      <Stack>
+        <Small icon="gantt" label="Auto Schedule" title="Dates follow links and constraints" disabled={noSel} onClick={() => ops.setMode('auto')} />
+        <Small icon="hand" label="Manually Schedule" title="Keep the dates you type; links and constraints will not move the task" disabled={noSel} onClick={() => ops.setMode('manual')} />
+        <Small icon="ban" label={allInactive ? 'Activate' : 'Inactivate'} title="Keep the task in the plan but stop counting its dates, cost and links" disabled={noSel} onClick={() => ops.setActive(allInactive)} />
       </Stack>
     </Group>
     <Group label="Tasks">
@@ -254,6 +262,9 @@ function ProjectTab({ st }: { st: Store }) {
         <Small icon="tree" label="WBS Chart" on={st.view === 'wbs'} onClick={() => st.setView('wbs')} />
         <Small icon="network" label="Network Diagram" on={st.view === 'network'} onClick={() => st.setView('network')} />
       </Stack>
+    </Group>
+    <Group label="Calendar">
+      <Big icon="clock" label={<>Change Working<br />Time</>} title="Work week, holidays and other exceptions" onClick={() => st.openDialog('calendar')} />
     </Group>
     <Group label="Schedule">
       <DropBig id="rbBaseline" icon="layers" label={<>Set<br />Baseline</>} st={st}>

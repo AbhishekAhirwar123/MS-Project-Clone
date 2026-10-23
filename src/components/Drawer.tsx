@@ -45,6 +45,7 @@ function DrawerBody({ st, t, r }: { st: Store; t: Task; r: Row }) {
 
   const setPredLink = (k: number, patch: Partial<Task['preds'][number]>) => {
     const next = { ...t.preds[k], ...patch };
+    if (next.unit === 'd') delete next.unit;
     const trial: Project = U.clone(p);
     ops.findTask(trial, uid).preds[k] = next;
     if (OP.schedule(trial, { cycleOnly: true }).cycle.length) { st.toast('That link would create a dependency loop.', true); return; }
@@ -76,10 +77,10 @@ function DrawerBody({ st, t, r }: { st: Store; t: Task; r: Row }) {
 
         {leaf && <>
           <div className="row3">
-            <label className="field"><span>Duration</span><Field className="inp" fk="d:duration" value={M.fmtDuration(r.duration)} onCommit={v => {
-              const d = M.parseDuration(v, p.hoursPerDay);
-              if (d == null) { st.toast('Enter a duration like 5, 5d, 2w or 16h.', true); return false; }
-              edit((x, pp) => { ops.setDuration(pp, x, d); });
+            <label className="field"><span>Duration</span><Field className="inp" fk="d:duration" value={M.fmtDuration(r.shown, r.elapsed)} title="5d, 2w, 16h, 1mo, or 3ed for elapsed (calendar) days" onCommit={v => {
+              const d = M.parseDurationEx(v, p.hoursPerDay);
+              if (d == null) { st.toast('Enter a duration like 5, 5d, 2w, 16h, 1mo or 3ed (elapsed).', true); return false; }
+              edit((x, pp) => { ops.setDuration(pp, x, d.days, d.elapsed); });
             }} /></label>
             <label className="field"><span>Work (hours)</span><Field className="inp" fk="d:work" value={U.num(r.work)} onCommit={v => {
               const hrs = parseFloat(v);
@@ -91,6 +92,17 @@ function DrawerBody({ st, t, r }: { st: Store; t: Task; r: Row }) {
             <label className="field"><span>% complete</span><Field className="inp" type="number" min={0} max={100} step={5} fk="d:percent" value={String(t.percent || 0)}
               onCommit={v => ops.setPercent(uid, Math.max(0, Math.min(100, Math.round(+v || 0))))} /></label>
           </div>
+          <div className="row2">
+            <label className="field"><span>Task mode</span><select className="sel" value={t.mode} onChange={e => ops.setMode(e.target.value === 'manual' ? 'manual' : 'auto')}>
+              <option value="auto">Auto scheduled</option><option value="manual">Manually scheduled</option>
+            </select></label>
+            <label className="field"><span>Active</span><label className="toggle" style={{ height: 24, padding: 0 }}><input type="checkbox" checked={t.active} onChange={e => ops.setActive(e.target.checked)} />Counts in the plan</label></label>
+          </div>
+          {t.mode === 'manual' && <div className="row2">
+            <label className="field"><span>Start (typed)</span><DateField className="inp" value={t.manualStart} onCommit={v => { set('manualStart', v); }} /></label>
+            <label className="field"><span>Finish (typed, optional)</span><DateField className="inp" value={t.manualFinish} onCommit={v => { set('manualFinish', v); }} /></label>
+          </div>}
+          {r.inactive && <div className="muted small">This task is inactive: its dates, cost and work are not counted, and its links no longer drive other tasks.</div>}
           <div className="row3">
             <label className="field"><span>Task type</span><select className="sel" value={t.type} onChange={e => set('type', e.target.value)}><Opts map={M.TASK_TYPES} /></select></label>
             <label className="field"><span>Effort driven</span><label className="toggle" style={{ height: 24, padding: 0 }}><input type="checkbox" checked={t.effortDriven} onChange={e => set('effortDriven', e.target.checked)} />Yes</label></label>
@@ -163,7 +175,10 @@ function DrawerBody({ st, t, r }: { st: Store; t: Task; r: Row }) {
               <select className="sel" value={l.type} title="Link type" onChange={e => setPredLink(k, { type: e.target.value as any })}>
                 {M.LINK_TYPES.map((ty: string) => <option key={ty}>{ty}</option>)}
               </select>
-              <Field className="inp" type="number" step={1} value={String(l.lag || 0)} title="Lag (days)" onCommit={v => { setPredLink(k, { lag: +v || 0 }); }} />
+              <Field className="inp" type="number" step={1} value={String(l.lag || 0)} title="Lag (negative for lead)" onCommit={v => { setPredLink(k, { lag: +v || 0 }); }} />
+              <select className="sel" value={l.unit || 'd'} title="Lag unit" onChange={e => setPredLink(k, { unit: e.target.value as any })}>
+                <option value="d">days</option><option value="%">%</option><option value="ed">elapsed d</option>
+              </select>
               <button className="icon-btn" aria-label="Remove" onClick={() => edit(x => { x.preds.splice(k, 1); })}><Icon name="x" /></button>
             </div>
           ))}

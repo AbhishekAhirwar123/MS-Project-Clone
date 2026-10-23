@@ -65,7 +65,7 @@ const build: Record<string, (st: Store) => ReactNode> = {
   critical: st => <>
     <p className="muted">Tasks with zero (or negative) total slack: any delay moves the project finish date.</p>
     <Table head={[['ID'], ['Task'], ['Start'], ['Finish'], ['Duration', true], ['Slack', true], ['Resources'], ['Predecessors']]}
-      rows={st.s.rows.filter((r: Row) => !r.summary && r.critical).map((r: Row) => [r.id, r.task.name, d(r.startDn), d(r.finishDn), M.fmtDuration(r.duration), U.num(r.slack) + 'd', r.names, M.formatPreds(st.p, r.task)])} />
+      rows={st.s.rows.filter((r: Row) => !r.summary && r.critical).map((r: Row) => [r.id, r.task.name, d(r.startDn), d(r.finishDn), M.fmtDuration(r.shown, r.elapsed), U.num(r.slack) + 'd', r.names, M.formatPreds(st.p, r.task)])} />
   </>,
   milestones: st => (
     <Table head={[['ID'], ['WBS'], ['Milestone'], ['Date'], ['Baseline'], ['Variance', true], ['Deadline'], ['Status']]}
@@ -136,7 +136,7 @@ const build: Record<string, (st: Store) => ReactNode> = {
   tasks: st => (
     <Table head={[['ID'], ['WBS'], ['Task'], ['Duration', true], ['Start'], ['Finish'], ['Predecessors'], ['Resources'], ['Cost', true]]}
       rows={st.s.rows.map((r: Row) => [r.id, r.wbs, <span style={{ paddingLeft: (r.task.level - 1) * 18 }}>{r.summary ? <b>{r.task.name}</b> : r.task.name}</span>,
-        M.fmtDuration(r.duration), d(r.startDn), d(r.finishDn), M.formatPreds(st.p, r.task), r.names, U.money(r.cost)])}
+        M.fmtDuration(r.shown, r.elapsed), d(r.startDn), d(r.finishDn), M.formatPreds(st.p, r.task), r.names, U.money(r.cost)])}
       foot={['', '', 'Total', M.fmtDuration(st.s.duration), d(st.s.startDn), d(st.s.finishDn), '', '', U.money(st.s.totalCost, st.p.currency)]} />
   )
 };

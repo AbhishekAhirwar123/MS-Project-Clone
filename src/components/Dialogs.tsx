@@ -3,7 +3,7 @@ import OP from '../core';
 import { useStore, S } from '../store';
 import * as ops from '../lib/taskOps';
 import Icon from './Icon';
-import type { CustomField, Resource } from '../types';
+import type { CalException, CustomField, Resource } from '../types';
 import { version } from '../../package.json';
 import { projectFromTable } from '../lib/importTable';
 import { shareUrl } from '../lib/share';
@@ -59,9 +59,8 @@ function SettingsDialog() {
   const statuses = STATUSES.includes(p.status) || !p.status ? STATUSES : STATUSES.concat([p.status]);
   return (
     <Modal title="Project information" onSubmit={fd => {
-      const bad: string[] = [];
-      const hol = parseDates(fd.get('holidays'), bad);
-      if (bad.length) st.toast('Ignored invalid holiday dates: ' + bad.join(', '), true);
+      const finishDate = String(fd.get('finishDate') || '');
+      if (fd.get('scheduleFrom') === 'finish' && U.parseDate(finishDate) == null) { st.toast('Enter a project finish date to schedule from the finish.', true); return false; }
       const cfs = fields.map(f => ({ ...f, name: f.name.trim() })).filter(f => f.name);
       st.commit(pp => {
         pp.name = String(fd.get('name')).trim() || 'Untitled project';
@@ -74,7 +73,9 @@ function SettingsDialog() {
         pp.hoursPerDay = Math.max(1, Math.min(24, +fd.get('hoursPerDay')! || 8));
         pp.budget = Math.max(0, +fd.get('budget')! || 0);
         pp.currency = String(fd.get('currency')).trim();
-        pp.holidays = hol;
+        pp.scheduleFrom = fd.get('scheduleFrom') === 'finish' ? 'finish' : 'start';
+        pp.finishDate = finishDate;
+        pp.criticalSlack = Math.max(0, +fd.get('criticalSlack')! || 0);
         pp.customFields = cfs;
         const keep = new Set(cfs.map(f => f.id));
         pp.tasks.forEach(t => { Object.keys(t.custom).forEach(id => { if (!keep.has(id)) delete t.custom[id]; }); });
@@ -94,8 +95,14 @@ function SettingsDialog() {
         <F label="Currency symbol" name="currency" value={p.currency} />
         <F label="Hours per working day" name="hoursPerDay" value={p.hoursPerDay} type="number" min={1} max={24} step={0.5} />
       </div>
-      <label className="field"><span>Holidays (one date per line, YYYY-MM-DD) — non-working days besides weekends</span>
-        <textarea className="inp" name="holidays" rows={3} defaultValue={(p.holidays || []).join('\n')} /></label>
+      <div className="row3">
+        <label className="field"><span>Schedule from</span><select className="sel" name="scheduleFrom" defaultValue={p.scheduleFrom}>
+          <option value="start">Project start date</option><option value="finish">Project finish date</option>
+        </select></label>
+        <F label="Finish date" name="finishDate" value={p.finishDate} type="date" />
+        <F label="Critical if slack ≤ (days)" name="criticalSlack" value={p.criticalSlack} type="number" min={0} step={1} />
+      </div>
+      <p className="muted small">Scheduling from the finish date works backwards and pushes every task as late as it can go; the start date above is then worked out for you. Holidays and the work week are under Project › Change Working Time.</p>
       <div className="field"><span>Custom task fields</span>
         <div className="mini-list">
           {fields.map((f, k) => (
@@ -110,6 +117,52 @@ function SettingsDialog() {
           <button type="button" className="btn ghost" onClick={() => setFields(fields.concat([{ id: 'c' + Date.now().toString(36) + fields.length, name: '', type: 'text' }]))}><Icon name="plus" />Add field</button>
         </div>
       </div>
+    </Modal>
+  );
+}
+
+// Work week plus date-range exceptions, like Project's "Change Working Time". An exception can switch
+// days off (holiday, shutdown) or on (a working Saturday) and wins over the work week.
+function CalendarDialog() {
+  const st = useStore(), p = st.p;
+  const [days, setDays] = useState<number[]>(p.workDays);
+  const [ex, setEx] = useState<CalException[]>(() => p.exceptions.map(x => ({ ...x })));
+  const patch = (k: number, v: Partial<CalException>) => setEx(ex.map((x, i) => (i === k ? { ...x, ...v } : x)));
+  const today = U.iso(U.todayDn());
+  return (
+    <Modal title="Change working time" onSubmit={() => {
+      if (!days.length) { st.toast('Choose at least one working day.', true); return false; }
+      const clean = ex.filter(x => U.parseDate(x.from) != null).map(x => ({
+        ...x, to: U.parseDate(x.to) != null ? x.to : x.from, name: x.name.trim() || (x.working ? 'Working time' : 'Non-working time')
+      }));
+      st.commit(pp => { pp.workDays = days.slice().sort(); pp.exceptions = clean; });
+    }}>
+      <div className="field"><span>Working days</span>
+        <div className="chk-row">
+          {[1, 2, 3, 4, 5, 6, 0].map(d => (
+            <label key={d} className="chk"><input type="checkbox" checked={days.includes(d)}
+              onChange={e => setDays(e.target.checked ? days.concat([d]) : days.filter(x => x !== d))} />{U.DAYS[d]}</label>
+          ))}
+        </div>
+      </div>
+      <div className="field"><span>Exceptions (holidays, shutdowns, extra working days). Later rows win where dates overlap.</span>
+        <div className="mini-list">
+          {!ex.length && <div className="muted small">No exceptions.</div>}
+          {ex.map((x, k) => (
+            <div className="mini-row exc" key={k}>
+              <input className="inp" aria-label="Exception name" placeholder="e.g. Public holiday" value={x.name} onChange={e => patch(k, { name: e.target.value })} />
+              <input className="inp" type="date" aria-label="From" value={x.from} onChange={e => patch(k, { from: e.target.value, to: x.to < e.target.value ? e.target.value : x.to })} />
+              <input className="inp" type="date" aria-label="To" value={x.to} min={x.from} onChange={e => patch(k, { to: e.target.value })} />
+              <select className="sel" aria-label="Working or not" value={x.working ? 'on' : 'off'} onChange={e => patch(k, { working: e.target.value === 'on' })}>
+                <option value="off">Non-working</option><option value="on">Working</option>
+              </select>
+              <button type="button" className="icon-btn" aria-label="Remove exception" onClick={() => setEx(ex.filter((_, i) => i !== k))}><Icon name="x" /></button>
+            </div>
+          ))}
+          <button type="button" className="btn ghost" onClick={() => setEx(ex.concat([{ name: '', from: today, to: today, working: false }]))}><Icon name="plus" />Add exception</button>
+        </div>
+      </div>
+      <p className="muted small">Every task is scheduled on this calendar. Resources can also have their own days off in the Resource Sheet.</p>
     </Modal>
   );
 }
@@ -285,6 +338,7 @@ export default function DialogHost() {
   if (!dialog) return null;
   switch (dialog.type) {
     case 'settings': return <SettingsDialog />;
+    case 'calendar': return <CalendarDialog />;
     case 'recurring': return <RecurringDialog />;
     case 'resource': return <ResourceDialog uid={dialog.props.uid} />;
     case 'about': return <AboutDialog />;

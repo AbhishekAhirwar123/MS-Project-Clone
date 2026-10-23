@@ -44,10 +44,14 @@ export interface UIState {
   guide: boolean;
 }
 
+// First visit: follow the operating system's light or dark setting, and give the task table about half the window.
+const prefersDark = (() => { try { return window.matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; } })();
+const defaultGridW = Math.max(460, Math.min(900, Math.round(window.innerWidth * 0.5)));
+
 const UI_DEFAULTS: UIState = {
-  view: 'gantt', zoom: 'week', critical: true, gridW: 600, ganttHide: 'none', drawer: window.innerWidth > 1100, netScope: 'all', netDates: false,
+  view: 'gantt', zoom: 'week', critical: true, gridW: defaultGridW, ganttHide: 'none', drawer: window.innerWidth > 1100, netScope: 'all', netDates: false,
   netZoom: 1, wbsDepth: 99, filter: 'all', group: 'none', sort: 'id', cols: DEFAULT_COLS.slice(), showBaseline: true,
-  report: 'overview', tab: 'task', timeline: true, ribbonMin: false, theme: 'light', bars: 'teal', fullYear: false, guide: true
+  report: 'overview', tab: 'task', timeline: true, ribbonMin: false, theme: prefersDark ? 'dark' : 'light', bars: 'teal', fullYear: false, guide: true
 };
 const PERSISTED_UI: (keyof UIState)[] = ['view', 'zoom', 'critical', 'gridW', 'ganttHide', 'drawer', 'netDates', 'wbsDepth', 'filter', 'group', 'sort', 'cols', 'showBaseline', 'report', 'tab', 'timeline', 'theme', 'bars', 'fullYear', 'guide'];
 

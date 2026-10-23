@@ -11,8 +11,10 @@ export interface Col {
   w: number;
   fixed?: boolean;
   num?: boolean;
-  edit?: 'duration' | 'work' | 'preds' | 'number' | 'percent' | 'date' | 'select' | 'text' | 'cftext' | 'cfnum';
+  edit?: 'duration' | 'work' | 'preds' | 'number' | 'percent' | 'date' | 'datetext' | 'select' | 'text' | 'cftext' | 'cfnum';
   field?: string;
+  // Editable columns whose value is computed rather than stored on the task: what the editor starts from.
+  editValue?: (r: Row) => string;
   options?: Record<string, string>;
   sumRo?: boolean;
   cf?: string;
@@ -26,15 +28,17 @@ const signedDays = (v: number) => (v == null ? '' : (v > 0 ? '+' : '') + U.num(v
 export const COLS: Record<string, Col> = {
   id: { t: 'ID', w: 44, fixed: true },
   ind: { t: '', w: 56, fixed: true },
-  name: { t: 'Task Name', w: 280, fixed: true },
+  name: { t: 'Task Name', w: 250, fixed: true },
   wbs: { t: 'WBS', w: 64, get: r => r.wbs },
-  duration: { t: 'Duration', w: 76, edit: 'duration', get: r => M.fmtDuration(r.duration), sumRo: true },
+  mode: { t: 'Task mode', w: 150, edit: 'select', options: { auto: 'Auto scheduled', manual: 'Manually scheduled' }, editValue: r => (r.manual ? 'manual' : 'auto'), sumRo: true },
+  active: { t: 'Active', w: 80, edit: 'select', options: { yes: 'Yes', no: 'No' }, editValue: r => (r.inactive ? 'no' : 'yes') },
+  duration: { t: 'Duration', w: 76, edit: 'duration', get: r => M.fmtDuration(r.shown, r.elapsed), sumRo: true },
   work: { t: 'Work', w: 80, edit: 'work', num: true, get: r => U.num(r.work) + 'h', sumRo: true },
-  start: { t: 'Start', w: 88, get: r => U.fmt(r.startDn) },
-  finish: { t: 'Finish', w: 88, get: r => U.fmt(r.finishDn) },
-  preds: { t: 'Predecessors', w: 110, edit: 'preds' },
-  res: { t: 'Resources', w: 170 },
-  cost: { t: 'Cost', w: 110, num: true, get: r => U.money(r.cost) },
+  start: { t: 'Start', w: 96, edit: 'datetext', get: r => U.fmt(r.startDn), sumRo: true },
+  finish: { t: 'Finish', w: 96, edit: 'datetext', get: r => U.fmt(r.finishDn), sumRo: true },
+  preds: { t: 'Predecessors', w: 100, edit: 'preds' },
+  res: { t: 'Resources', w: 150 },
+  cost: { t: 'Cost', w: 96, num: true, get: r => U.money(r.cost) },
   fixedCost: { t: 'Fixed cost', w: 96, num: true, edit: 'number', field: 'fixedCost', get: r => String(r.task.fixedCost || 0) },
   percent: { t: '% Complete', w: 90, num: true, edit: 'percent', get: r => r.percent + '%', sumRo: true },
   actualStart: { t: 'Actual start', w: 130, edit: 'date', field: 'actualStart', sumRo: true },
@@ -67,7 +71,7 @@ export const COLS: Record<string, Col> = {
 };
 
 export const COL_GROUPS: [string, string[]][] = [
-  ['General', ['wbs', 'duration', 'work', 'start', 'finish', 'preds', 'res', 'cost', 'fixedCost', 'priority', 'type', 'notes']],
+  ['General', ['wbs', 'mode', 'active', 'duration', 'work', 'start', 'finish', 'preds', 'res', 'cost', 'fixedCost', 'priority', 'type', 'notes']],
   ['Schedule', ['constraint', 'constraintDate', 'deadline', 'slack', 'freeSlack', 'es', 'ef', 'ls', 'lf', 'levelDelay']],
   ['Tracking', ['percent', 'actualStart', 'actualFinish', 'actualCost', 'bStart', 'bFinish', 'bCost', 'startVar', 'finishVar', 'costVar']],
   ['Earned value', ['bcws', 'bcwp', 'acwp', 'sv', 'cv']]

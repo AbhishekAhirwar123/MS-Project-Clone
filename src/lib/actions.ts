@@ -2,6 +2,7 @@ import OP from '../core';
 import { S, VIEW_NAMES, ask, PREV_STORE, type Store } from '../store';
 import { gridItems } from './grid';
 import { toXlsx } from './xlsx';
+import { fromMspXml, toMspXml } from './mspxml';
 import { fromTemplate, type Template } from './templates';
 import type { Project } from '../types';
 
@@ -31,16 +32,27 @@ async function saveFile(as: boolean) {
   }
 }
 
+// OpenPlan files are JSON; Microsoft Project XML is recognised by its extension or its first characters.
+const isMspXml = (name: string, text: string) => /\.xml$/i.test(name) || /^\s*(<\?xml|<Project)/.test(text);
+
+function readProject(name: string, text: string): { project: Project; note: string } {
+  if (!isMspXml(name, text)) return { project: IO.fromJSON(text), note: '' };
+  const { project, warnings } = fromMspXml(text);
+  return { project, note: warnings.length ? '. Note: ' + warnings.join('; ') : '' };
+}
+
 async function openHandle(h: any) {
   const file = await h.getFile();
   checkSize(file);
-  S().replaceProject(IO.fromJSON(await file.text()), 'Opened ' + file.name);
-  handle = h;
+  const { project, note } = readProject(file.name, await file.text());
+  S().replaceProject(project, 'Opened ' + file.name + note);
+  // An XML file is an import, so Save should not write OpenPlan JSON over it.
+  handle = isMspXml(file.name, '') ? null : h;
 }
 
 async function openFile() {
   try {
-    const [h] = await W.showOpenFilePicker({ types: [{ description: 'Project files', accept: { 'application/x-openplan': ['.openplan'], 'application/json': ['.json'] } }] });
+    const [h] = await W.showOpenFilePicker({ types: [{ description: 'Project files', accept: { 'application/x-openplan': ['.openplan'], 'application/json': ['.json'], 'application/xml': ['.xml'] } }] });
     await openHandle(h);
   } catch (e: any) {
     if (e.name !== 'AbortError') S().toast('Could not open file: ' + e.message, true);
@@ -125,6 +137,7 @@ export function runAction(a: string) {
       U.download(name + '-tasks.xlsx', new Blob([toXlsx(IO.taskTable(st.p), 'Tasks')], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       st.toast('Excel file downloaded');
       break;
+    case 'mspxml': U.download(name + '.xml', toMspXml(st.p), 'application/xml'); st.toast('Microsoft Project XML downloaded. In MS Project: File › Open and choose the .xml file.'); break;
     case 'csv': U.download(name + '-tasks.csv', '﻿' + IO.toCSV(st.p), 'text/csv'); st.toast('CSV downloaded'); break;
     case 'png': case 'svg': {
       const svg = viewSvgString(st);
@@ -147,7 +160,7 @@ export function runAction(a: string) {
 function pickFile(insert: boolean) {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.openplan,.json,application/json';
+  input.accept = '.openplan,.json,.xml,application/json,application/xml,text/xml';
   input.onchange = () => {
     const file = input.files && input.files[0];
     if (!file) return;
@@ -156,13 +169,14 @@ function pickFile(insert: boolean) {
     reader.onload = () => {
       const st = S();
       try {
-        const p: Project = IO.fromJSON(String(reader.result));
+        const { project: p, note } = readProject(file.name, String(reader.result));
         if (insert) {
           let res = { uid: 0, warnings: [] as string[] };
           st.commit(pp => { res = IO.insertProject(pp, p); });
           st.select([res.uid], res.uid);
-          st.toast('Inserted ' + file.name + ' as a subproject' + (res.warnings.length ? '. Note: ' + res.warnings.join('; ') + '.' : ''), res.warnings.length > 0);
-        } else st.replaceProject(p, 'Opened ' + file.name);
+          const notes = res.warnings.concat(note ? [note.replace(/^\. Note: /, '')] : []);
+          st.toast('Inserted ' + file.name + ' as a subproject' + (notes.length ? '. Note: ' + notes.join('; ') + '.' : ''), notes.length > 0);
+        } else st.replaceProject(p, 'Opened ' + file.name + note);
       } catch (e: any) {
         st.toast('Could not open file: ' + e.message, true);
       }
