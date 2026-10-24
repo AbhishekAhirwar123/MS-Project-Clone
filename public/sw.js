@@ -1,7 +1,7 @@
-// OpenPlan offline support: pages load from the network when online and from the cache when offline.
+// Neo Project offline support: pages load from the network when online and from the cache when offline.
 // Built files have content hashes in their names, so they are served from the cache once stored;
 // other files are served from the cache and refreshed in the background.
-const CACHE = 'openplan-v1';
+const CACHE = 'neoproject-v1';
 const HASHED = /-[\w-]{8}\.(js|css|woff2)$/;
 
 self.addEventListener('install', event => {

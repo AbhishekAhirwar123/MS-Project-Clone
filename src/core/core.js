@@ -1,5 +1,5 @@
 /*
- * OpenPlan core: utilities, working-day calendar, project model and scheduler.
+ * Neo Project core: utilities, working-day calendar, project model and scheduler.
  * Scheduling uses the critical path method: a forward pass for early dates,
  * a backward pass for late dates, then total/free slack and the critical path.
  */

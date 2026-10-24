@@ -8,14 +8,14 @@ import Icon from './Icon';
 import type { ViewName } from '../types';
 
 const U = OP.util;
-const LOGO_MARK = './assets/OpenPlan.png';
+const LOGO_MARK = './assets/logo.png';
 
 /* ---------- title bar ---------- */
 
 export function TitleBar() {
   const st = useApp();
   const [renaming, setRenaming] = useState(false);
-  useEffect(() => { document.title = st.p.name + ' - OpenPlan'; }, [st.p.name]);
+  useEffect(() => { document.title = st.p.name + ' - Neo Project'; }, [st.p.name]);
   const rename = (value: string) => {
     setRenaming(false);
     const name = value.trim();
@@ -24,7 +24,7 @@ export function TitleBar() {
   return (
     <header className="titlebar">
       <div className="qat">
-        <button className="qat-btn home" title="OpenPlan home" aria-label="OpenPlan home" onClick={() => { location.hash = ''; }}><img className="app-icon" src={LOGO_MARK} alt="" /></button>
+        <button className="qat-btn home" title="Neo Project home" aria-label="Neo Project home" onClick={() => { location.hash = ''; }}><img className="app-icon" src={LOGO_MARK} alt="" /></button>
         <button className="qat-btn" title="Save (Ctrl+S)" aria-label="Save" onClick={() => runAction('save')}><Icon name="save" /></button>
         <button className="qat-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled={!st.undo.length} onClick={st.undoAct}><Icon name="undo" /></button>
         <button className="qat-btn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled={!st.redo.length} onClick={st.redoAct}><Icon name="redo" /></button>
@@ -35,14 +35,14 @@ export function TitleBar() {
               onBlur={e => rename(e.target.value)}
               onKeyDown={e => { if (e.key === 'Escape') e.currentTarget.value = st.p.name; if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur(); }} />
           : <button className="title-btn" title="Rename project" onClick={() => setRenaming(true)}>{st.p.name}</button>}
-        {' - OpenPlan'}
+        {' - Neo Project'}
       </div>
       <div className="tb-right">
         <button className="qat-btn" title="Dark / light" aria-label="Toggle dark mode" onClick={() => st.setUI({ theme: st.theme === 'dark' ? 'light' : 'dark' })}>
           <Icon name={st.theme === 'dark' ? 'sun' : 'moon'} />
         </button>
         <button className="qat-btn" title="Share a copy as a link" aria-label="Share a copy as a link" onClick={() => runAction('share')}><Icon name="link" /></button>
-        <button className="qat-btn" title="About OpenPlan" aria-label="About" onClick={() => st.openDialog('about')}><Icon name="info" /></button>
+        <button className="qat-btn" title="About Neo Project" aria-label="About" onClick={() => st.openDialog('about')}><Icon name="info" /></button>
       </div>
     </header>
   );
@@ -159,14 +159,14 @@ export function Backstage() {
     </div></>;
   } else if (page === 'open') {
     body = <><h1>Open</h1>
-      <Tile icon="upload" title="Browse…" sub="OpenPlan files (.openplan, .json) or Microsoft Project XML (.xml)" act="open" />
+      <Tile icon="upload" title="Browse…" sub="Neo Project files (.neoproject, .json) or Microsoft Project XML (.xml)" act="open" />
       <Tile icon="table" title="Import from Excel or CSV…" sub="Paste a task list from a spreadsheet, or choose a CSV file" act="import" />
       <Tile icon="layers" title="Insert as Subproject…" sub="Add another project file under a new summary task" act="insert" />
       <Tile icon="undo" title="Restore Previous Project" sub="Bring back the plan that was open before the last New, Open or Sample" act="restore" disabled={!hasPrevious()} />
     </>;
   } else if (page === 'save') {
     body = <><h1>Save</h1>
-      <Tile icon="save" title="Save" sub="Save to an OpenPlan (.openplan) file on your computer; Ctrl+S saves back to the same file" act="save" />
+      <Tile icon="save" title="Save" sub="Save to an Neo Project (.neoproject) file on your computer; Ctrl+S saves back to the same file" act="save" />
       <Tile icon="save" title="Save As…" sub="Save a copy under a new name or location" act="saveas" />
       <Tile icon="link" title="Share a copy as a link" sub="Anyone with the link gets their own copy; nothing is uploaded" act="share" />
       <p className="bs-note">{st.saveState === 'ok' ? 'Your work is also saved automatically in this browser.'
@@ -184,7 +184,7 @@ export function Backstage() {
   } else if (page === 'print') {
     body = <><h1>Print</h1><Tile icon="printer" title={'Print ' + viewName} sub="Use “Save as PDF” in the print dialog to create a PDF" act="print" /></>;
   } else if (page === 'about') {
-    body = <><h1>About</h1><img className="logo" src="./assets/OpenPlan.png" alt="OpenPlan" height={48} />
+    body = <><h1>About</h1><img className="logo" src="./assets/logo.png" alt="Neo Project" height={48} />
       <p className="bs-note">Free, browser-based project planning: Gantt chart, critical path, network diagram, WBS, resources, leveling, baselines, tracking, earned value and reports.</p>
       <Tile icon="info" title="Keyboard shortcuts and help" sub="Editing tips for the task table and Gantt chart" act="about" />
       <button className="bs-tile" onClick={() => st.setUI({ guide: true, backstage: false })}><Icon name="check" /><div><b>Getting started guide</b><span>Show the four-step checklist again</span></div></button></>;

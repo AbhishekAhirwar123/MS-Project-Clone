@@ -1,6 +1,6 @@
 {
-  "name": "OpenPlan",
-  "short_name": "OpenPlan",
+  "name": "Neo Project",
+  "short_name": "Neo Project",
   "description": "Free, browser-based project planner",
   "start_url": "./",
   "scope": "./",
@@ -14,7 +14,7 @@
   "file_handlers": [
     {
       "action": "./",
-      "accept": { "application/x-openplan": [".openplan"] },
+      "accept": { "application/x-neoproject": [".neoproject"] },
       "icons": [{ "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" }],
       "launch_type": "single-client"
     }

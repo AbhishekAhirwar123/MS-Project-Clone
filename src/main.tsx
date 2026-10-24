@@ -22,7 +22,7 @@ async function openSharedPlan() {
       location.hash = 'app';
     }, 'Open plan');
   } catch {
-    S().toast('This share link is incomplete or damaged. Ask for the link again, or for the .openplan file.', true);
+    S().toast('This share link is incomplete or damaged. Ask for the link again, or for the .neoproject file.', true);
   }
 }
 const loadApp = () => import('./App');
@@ -34,7 +34,7 @@ function Root() {
   const theme = useStore(s => s.theme);
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
   useEffect(() => {
-    const onHash = () => { openSharedPlan(); setInApp(location.hash === '#app'); W.goatcounter?.count?.(); };
+    const onHash = () => { openSharedPlan(); setInApp(location.hash === '#app'); };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -53,16 +53,16 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   static getDerivedStateFromError(error: Error) { return { error }; }
   render() {
     if (!this.state.error) return this.props.children;
-    const resetView = () => { try { localStorage.removeItem('openplan.ui'); } catch { /* storage unavailable */ } location.reload(); };
+    const resetView = () => { try { localStorage.removeItem('neoproject.ui'); } catch { /* storage unavailable */ } location.reload(); };
     const backup = () => {
       let text = '';
-      try { text = localStorage.getItem('openplan.project') || ''; } catch { /* storage unavailable */ }
-      if (text) OP.util.download('openplan-backup.openplan', text, 'application/x-openplan');
+      try { text = localStorage.getItem('neoproject.project') || ''; } catch { /* storage unavailable */ }
+      if (text) OP.util.download('neoproject-backup.neoproject', text, 'application/x-neoproject');
     };
     return (
       <div className="crash">
         <h1>Something went wrong</h1>
-        <p>OpenPlan hit an error: {this.state.error.message}</p>
+        <p>Neo Project hit an error: {this.state.error.message}</p>
         <p>Your project is still saved in this browser. Download a backup copy, then reset the view settings and reload.</p>
         <div className="crash-actions">
           <button className="btn" onClick={backup}>Download project backup</button>

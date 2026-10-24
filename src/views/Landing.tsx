@@ -6,7 +6,7 @@ import Icon from '../components/Icon';
 import type { Schedule } from '../types';
 
 const C = OP.charts;
-const REPO = 'https://github.com/MNSBaanu/OpenPlan';
+const REPO = 'https://github.com/AbhishekAhirwar123/MS-Project-Clone';
 // The page title from index.html; the app replaces it with the project name.
 const PAGE_TITLE = document.title;
 
@@ -22,7 +22,7 @@ function openSample() {
 
 const STEPS: [string, string][] = [
   ['List the work', 'Type your tasks and durations, and indent them into phases. That outline becomes your WBS.'],
-  ['Link the tasks', 'Say which task depends on which. OpenPlan schedules everything and finds the critical path.'],
+  ['Link the tasks', 'Say which task depends on which. Neo Project schedules everything and finds the critical path.'],
   ['Add people and costs', 'Assign team members, rates and materials. Overloaded people are flagged and costs are totalled.'],
   ['Export the results', 'Download the Gantt chart, network diagram, WBS, budget and reports for your document.']
 ];
@@ -54,8 +54,8 @@ const AUDIENCE: [string, string, string][] = [
 ];
 
 const FAQ: [string, string][] = [
-  ['Is OpenPlan really free?', 'Yes. There are no accounts, trials or paid tiers.'],
-  ['Where is my project stored?', 'In this browser, saved automatically as you work, and in .openplan files you save to your computer. Your plan is never uploaded anywhere.'],
+  ['Is Neo Project really free?', 'Yes. There are no accounts, trials or paid tiers.'],
+  ['Where is my project stored?', 'In this browser, saved automatically as you work, and in .neoproject files you save to your computer. Your plan is never uploaded anywhere.'],
   ['Can I put the charts in my report?', 'Yes. Every chart exports as PNG or SVG, and each of the 10 reports prints or saves as a PDF.'],
   ['Does it work on a phone?', 'This page does. The planner itself has a spreadsheet-style grid and a timeline, so it works best on a laptop or desktop screen.']
 ];
@@ -94,7 +94,7 @@ function Preview({ sample }: { sample: ReturnType<typeof useSample> }) {
       </div>
       <div className="lp-shot">
         <div className="lp-shot-bar">
-          <img className="logo" src="./assets/OpenPlan.png" alt="" width={16} height={16} />
+          <img className="logo" src="./assets/logo.png" alt="" width={16} height={16} />
           <span>Library Booking App (Sample) — {cur[1]}</span>
         </div>
         <div className={'lp-shot-body ' + tab} role="tabpanel" dangerouslySetInnerHTML={{ __html: sample[tab] }} />
@@ -112,7 +112,7 @@ export default function Landing() {
     <div className="landing">
       <header className="lp-nav">
         <a className="lp-brand" href="#" onClick={e => { e.preventDefault(); document.querySelector('.landing')?.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-          <img className="logo" src="./assets/OpenPlan.png" alt="" width={26} height={26} />OpenPlan
+          <img className="logo" src="./assets/logo.png" alt="" width={26} height={26} />Neo Project
         </a>
         <nav className="lp-links">
           <button onClick={() => scrollTo('how')}>How it works</button>
@@ -132,7 +132,7 @@ export default function Landing() {
               <p className="lp-label">Free online project planning</p>
               <h1>Turn a task list into a complete project plan.</h1>
               <p className="lp-lede">
-                Enter your tasks, how long they take and what depends on what. OpenPlan builds the schedule and
+                Enter your tasks, how long they take and what depends on what. Neo Project builds the schedule and
                 gives you the Gantt chart, critical path, network diagram, WBS, resource plan and budget,
                 ready to export into your report.
               </p>
@@ -213,11 +213,11 @@ export default function Landing() {
         <section className="lp-block" id="files">
           <div className="lp-head">
             <h2>Your work stays with you</h2>
-            <p>OpenPlan has no server and no account. Here’s where your plans are kept. Anonymous visit counts (page, referrer, screen size, browser) are collected with cookie-free GoatCounter analytics; project data is never sent.</p>
+            <p>Neo Project has no server and no account. Here’s where your plans are kept. No analytics or tracking scripts are used; project data is never sent.</p>
           </div>
           <div className="lp-cols">
             <div><Icon name="save" /><h3>In your browser</h3><p>Every change is saved automatically on this device, so you can close the tab and continue later.</p></div>
-            <div><Icon name="file" /><h3>In .openplan files</h3><p>Save to a file on your computer. In Chrome and Edge, install the app and double-click a file to open it.</p></div>
+            <div><Icon name="file" /><h3>In .neoproject files</h3><p>Save to a file on your computer. In Chrome and Edge, install the app and double-click a file to open it.</p></div>
             <div><Icon name="download" /><h3>In other tools</h3><p>Export CSV for spreadsheets, and PNG or SVG for your report.</p></div>
           </div>
         </section>
@@ -245,15 +245,13 @@ export default function Landing() {
       </main>
 
       <footer className="lp-footer">
-        <span>OpenPlan</span>
+        <span>Neo Project</span>
         <span className="lp-dot">·</span>
         <span>Free, browser-based project planning</span>
         <span className="lp-dot">·</span>
         <span>Open source under the <a href={REPO + '/blob/main/LICENSE'} target="_blank" rel="noreferrer">MIT License</a></span>
         <span className="lp-dot">·</span>
         <a href={REPO} target="_blank" rel="noreferrer">Source on GitHub</a>
-        <span className="lp-dot">·</span>
-        <span>Made by <a href="https://github.com/MNSBaanu" target="_blank" rel="noreferrer">MNS Baanu</a></span>
       </footer>
     </div>
   );

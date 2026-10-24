@@ -3,7 +3,7 @@ import type { Project } from '../types';
 // Named versions are full copies of a plan kept in this browser, newest first.
 export interface Version { id: string; name: string; project: string; at: string; json: string }
 
-const KEY = 'openplan.versions', MAX = 30;
+const KEY = 'neoproject.versions', MAX = 30;
 
 export function listVersions(): Version[] {
   try {

@@ -249,12 +249,12 @@ const SHORTCUTS: [ReactNode, string][] = [
 
 function AboutDialog() {
   return (
-    <Modal title="About OpenPlan" cancelLabel="Close" noOk>
+    <Modal title="About Neo Project" cancelLabel="Close" noOk>
       <div className="about-head">
-        <img src="./assets/OpenPlan.png" alt="" width={44} height={44} />
-        <div><h3>OpenPlan</h3><span className="muted">Version {version} · Free, browser-based project planning</span></div>
+        <img src="./assets/logo.png" alt="" width={44} height={44} />
+        <div><h3>Neo Project</h3><span className="muted">Version {version} · Free, browser-based project planning</span></div>
       </div>
-      <p>Plan with a WBS, Gantt chart, critical path, network diagram, resources, leveling, baselines, tracking, earned value, budget and reports. Your project is saved automatically in this browser only; use <b>File › Save</b> to keep a copy as an .openplan file.</p>
+      <p>Plan with a WBS, Gantt chart, critical path, network diagram, resources, leveling, baselines, tracking, earned value, budget and reports. Your project is saved automatically in this browser only; use <b>File › Save</b> to keep a copy as an .neoproject file.</p>
       <section className="about-sec">
         <h4>Keyboard shortcuts</h4>
         <table className="about-keys"><tbody>{SHORTCUTS.map(([keys, action]) => <tr key={action}><td>{keys}</td><td>{action}</td></tr>)}</tbody></table>
@@ -267,7 +267,7 @@ function AboutDialog() {
           <dt>Predecessors</dt><dd>Type task IDs separated by commas. Link types are FS (default), SS, FF and SF, with optional lag, e.g. <code>3, 5SS+2d, 7FF-1d</code>.</dd>
         </dl>
       </section>
-      <p className="about-foot muted">Open source under the <a href="https://github.com/MNSBaanu/OpenPlan/blob/main/LICENSE" target="_blank" rel="noreferrer">MIT License</a> · <a href="https://github.com/MNSBaanu/OpenPlan" target="_blank" rel="noreferrer">Source on GitHub</a> · Made by MNS Baanu</p>
+      <p className="about-foot muted">Open source under the <a href="https://github.com/AbhishekAhirwar123/MS-Project-Clone/blob/main/LICENSE" target="_blank" rel="noreferrer">MIT License</a> · <a href="https://github.com/AbhishekAhirwar123/MS-Project-Clone" target="_blank" rel="noreferrer">Source on GitHub</a></p>
     </Modal>
   );
 }
@@ -319,7 +319,7 @@ function ShareDialog() {
         <input ref={inputRef} className="inp" id="share-url" readOnly value={url || 'Creating link…'} aria-label="Share link" onFocus={e => e.target.select()} />
         <button type="button" className="btn primary" disabled={!url} onClick={copy}><Icon name="link" />Copy link</button>
       </div>
-      {url && <p className="muted small">Link length: {Math.ceil(url.length / 1024)} KB.{url.length > 8000 ? ' Some chat and email apps cut off long links; if it does not open, send the .openplan file instead.' : ''}</p>}
+      {url && <p className="muted small">Link length: {Math.ceil(url.length / 1024)} KB.{url.length > 8000 ? ' Some chat and email apps cut off long links; if it does not open, send the .neoproject file instead.' : ''}</p>}
       {error && <p className="alert inline">Could not create the link: {error}</p>}
     </Modal>
   );

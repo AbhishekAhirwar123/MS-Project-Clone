@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/assets/OpenPlan.png" alt="OpenPlan" height="64">
+<img src="public/assets/logo.png" alt="Neo Project" height="64">
 
 **A free project planner that runs in the browser.**
 
@@ -28,7 +28,7 @@ Build a WBS, a Gantt chart, a critical-path network diagram, a resource plan and
 
 ## About
 
-OpenPlan is a project management tool for students and small teams who need to plan a project with the standard techniques (WBS, Gantt chart, critical path method, resource allocation and budgeting) but don't have access to paid desktop software.
+Neo Project is a project management tool for students and small teams who need to plan a project with the standard techniques (WBS, Gantt chart, critical path method, resource allocation and budgeting) but don't have access to paid desktop software.
 
 It runs entirely in the browser and has no server or account. Projects are saved on your own computer.
 
@@ -42,7 +42,7 @@ It runs entirely in the browser and has no server or account. Projects are saved
 - **Budget and reports**: cost by work package and by resource, monthly and cumulative cost, and 10 ready-made reports.
 - **Task board**: a Not started / In progress / Done board; dragging a card updates its % complete.
 - **Getting started**: templates (final-year project, software sprint, event, research project) and a first-run checklist.
-- **Files**: save to `.openplan` files, open them by double-clicking once the app is installed, import task lists from Excel or CSV, and export Excel (.xlsx) and CSV.
+- **Files**: save to `.neoproject` files, open them by double-clicking once the app is installed, import task lists from Excel or CSV, and export Excel (.xlsx) and CSV.
 - **Sharing and versions**: share a copy of a plan as a link (the plan travels inside the link, nothing is uploaded), and save named versions in the browser.
 - **Offline**: once installed or visited, the app works without an internet connection.
 - **Interface**: a tabbed toolbar that you can hide, keyboard shortcuts, undo and redo, and light and dark themes.
@@ -67,8 +67,8 @@ It runs entirely in the browser and has no server or account. Projects are saved
 ### Installation
 
 ```bash
-git clone https://github.com/MNSBaanu/OpenPlan.git
-cd OpenPlan
+git clone https://github.com/AbhishekAhirwar123/MS-Project-Clone.git
+cd MS-Project-Clone
 npm install
 ```
 
@@ -107,29 +107,24 @@ One-time setup:
 
 If you imported the repository into Vercel, turn off Vercel's own Git deployments (**Project › Settings › Git**) so each push deploys only once.
 
-### Visitor counts
-
-OpenPlan counts visitors with [GoatCounter](https://www.goatcounter.com), a free analytics service that uses no cookies. The script tag is in `index.html`. It counts visits to the landing page (`/`) and to the app (`/app`) separately. Project data is never sent.
-
-To use your own GoatCounter account, change `mnsbaanu` in the `data-goatcounter` address in `index.html` to your site code. GoatCounter ignores visits from `localhost`, so only the deployed site is counted.
 
 ## Usage
 
 ### Saving your work
 
 - **Autosave**: every change is saved in the browser's localStorage. That copy exists only in the browser and computer you are using, and clearing your browser data deletes it.
-- **Save** (Ctrl+S) writes an `.openplan` file. In Chrome and Edge, the first save asks where to put the file, and later saves write back to that same file. **Save As** makes a copy. Other browsers download the file instead.
-- **Open** loads an `.openplan` file or an older `.json` project file.
+- **Save** (Ctrl+S) writes an `.neoproject` file. In Chrome and Edge, the first save asks where to put the file, and later saves write back to that same file. **Save As** makes a copy. Other browsers download the file instead.
+- **Open** loads an `.neoproject` file or an older `.json` project file.
 
 Keep a project file for anything important.
 
 ### Opening files by double-clicking
 
-In Chrome or Edge, install OpenPlan as an app. After that, double-clicking an `.openplan` file opens it in OpenPlan.
+In Chrome or Edge, install Neo Project as an app. After that, double-clicking an `.neoproject` file opens it in Neo Project.
 
-1. Open OpenPlan from an HTTPS address or from `localhost`.
+1. Open Neo Project from an HTTPS address or from `localhost`.
 2. Click the **Install** icon in the address bar, or choose **Cast, save and share › Install page as app** from the browser menu.
-3. Double-click an `.openplan` file. The first time, choose **Allow** when the browser asks whether OpenPlan may open this file type.
+3. Double-click an `.neoproject` file. The first time, choose **Allow** when the browser asks whether Neo Project may open this file type.
 
 ### Toolbar
 
@@ -162,12 +157,11 @@ In Chrome or Edge, install OpenPlan as an app. After that, double-clicking an `.
 ## Project structure
 
 ```
-OpenPlan/
+MS-Project-Clone/
 ├── public/
 │   ├── assets/              logo, favicon and app icons
-│   ├── manifest.webmanifest app install and .openplan file handling
-│   ├── sw.js                offline support
-│   └── count.js             GoatCounter visit counter (self-hosted)
+│   ├── manifest.webmanifest app install and .neoproject file handling
+│   └── sw.js                offline support
 ├── src/
 │   ├── core/                scheduling engine, file formats and CSV export, SVG charts, sample project
 │   ├── components/          toolbar, title and status bars, File menu, dialogs, task details panel
@@ -188,10 +182,6 @@ OpenPlan/
 2. Make your changes and check that `npm run lint`, `npm test` and `npm run build` pass.
 3. Commit, push, and open a pull request.
 
-## Author
-
-OpenPlan is made by [MNS Baanu](https://github.com/MNSBaanu).
-
 ## License
 
-OpenPlan is released under the [MIT License](LICENSE).
+Neo Project is released under the [MIT License](LICENSE).

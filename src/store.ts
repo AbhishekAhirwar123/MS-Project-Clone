@@ -4,9 +4,9 @@ import OP from './core';
 import type { Project, Schedule, ViewName } from './types';
 import { capHistory } from './lib/history';
 
-const STORE = 'openplan.project';
-export const PREV_STORE = 'openplan.project.previous';
-const UISTORE = 'openplan.ui';
+const STORE = 'neoproject.project';
+export const PREV_STORE = 'neoproject.project.previous';
+const UISTORE = 'neoproject.ui';
 
 export const DEFAULT_COLS = ['id', 'ind', 'name', 'duration', 'start', 'finish', 'preds', 'res', 'cost'];
 export const ZOOMS = ['day', 'week', 'month', 'quarter'] as const;

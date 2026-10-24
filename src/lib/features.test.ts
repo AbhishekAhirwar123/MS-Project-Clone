@@ -43,7 +43,7 @@ describe('table import', () => {
     expect(res.warnings).toEqual([]);
   });
 
-  it('re-imports an OpenPlan CSV export with the same outline and links', () => {
+  it('re-imports an Neo Project CSV export with the same outline and links', () => {
     const p = OP.demo(), res = projectFromTable(OP.io.toCSV(p));
     expect(res.project.tasks.map((t: any) => [t.name, t.level])).toEqual(p.tasks.map((t: any) => [t.name, t.level]));
     expect(res.project.tasks.map((t: any) => t.preds.length)).toEqual(p.tasks.map((t: any) => t.preds.length));

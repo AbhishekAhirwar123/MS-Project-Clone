@@ -1,6 +1,6 @@
-# OpenPlan User Guide
+# Neo Project User Guide
 
-OpenPlan is a free project planner that runs in your web browser. You list the tasks, how long each takes and what depends on what. OpenPlan then builds the schedule, the Gantt chart, the critical path, the resource plan and the budget. It works like Microsoft Project, so if you have used that, most of this will feel familiar.
+Neo Project is a free project planner that runs in your web browser. You list the tasks, how long each takes and what depends on what. Neo Project then builds the schedule, the Gantt chart, the critical path, the resource plan and the budget. It works like Microsoft Project, so if you have used that, most of this will feel familiar.
 
 Your plan is saved in your own browser. Nothing is uploaded and there is no account.
 
@@ -25,13 +25,13 @@ Your plan is saved in your own browser. Nothing is uploaded and there is no acco
 
 ## 1. Open the app
 
-Start at the OpenPlan home page.
+Start at the Neo Project home page.
 
-![The OpenPlan home page with the headline, the Start planning and Try the sample project buttons, and an At a glance summary](images/01-landing.png)
+![The Neo Project home page with the headline, the Start planning and Try the sample project buttons, and an At a glance summary](images/01-landing.png)
 
 *The home page. **Open the app** (top right) and **Start planning** both open the planner and continue your last plan. **Try the sample project** opens a ready-made example.*
 
-Scroll down for a live preview of what OpenPlan draws from the sample project. Use the tabs to switch between the **Gantt chart**, **Network diagram**, **WBS** and **Budget**.
+Scroll down for a live preview of what Neo Project draws from the sample project. Use the tabs to switch between the **Gantt chart**, **Network diagram**, **WBS** and **Budget**.
 
 ![The preview section of the home page showing a Gantt chart of the sample Library Booking App project](images/02-landing-preview.png)
 
@@ -51,7 +51,7 @@ If you already have a plan open, choosing **Try the sample project** asks you to
 
 This is the main window.
 
-![The OpenPlan workspace: title bar, File button and tabs, ribbon, timeline, task table on the left and Gantt chart on the right, status bar at the bottom](images/04-app-window.png)
+![The Neo Project workspace: title bar, File button and tabs, ribbon, timeline, task table on the left and Gantt chart on the right, status bar at the bottom](images/04-app-window.png)
 
 | Area | What it does |
 |---|---|
@@ -140,7 +140,7 @@ In the **Predecessors** cell, type task IDs separated by commas:
 | `3FS+3ed` | Starts 3 calendar days after task 3 finishes (elapsed lag) |
 | `2, 5SS+2d, 7FF` | Several links at once |
 
-If a link would create a loop (A depends on B and B depends on A), OpenPlan refuses it and says so.
+If a link would create a loop (A depends on B and B depends on A), Neo Project refuses it and says so.
 
 ### Other ways to link
 
@@ -154,14 +154,14 @@ If a link would create a loop (A depends on B and B depends on A), OpenPlan refu
 
 ### Auto scheduled (the default)
 
-OpenPlan decides the dates from the links, constraints and calendar.
+Neo Project decides the dates from the links, constraints and calendar.
 
 ### Manually scheduled
 
 Select a task and choose **Manually Schedule** on the Task tab (or set the **Task mode** column). The task keeps the dates you give it:
 
 * Type a new **Start** (and optionally **Finish**) in the table, or drag the bar.
-* Links and constraints no longer move it. If its start is earlier than its predecessors allow, OpenPlan flags the conflict.
+* Links and constraints no longer move it. If its start is earlier than its predecessors allow, Neo Project flags the conflict.
 * Its successors still follow it.
 
 Choose **Auto Schedule** to hand control back. Manual bars are drawn with a dashed outline.
@@ -202,7 +202,7 @@ Every task is scheduled on this calendar. Individual people can have their own d
 
 ### Schedule from the finish date
 
-In **Project › Project Information**, set **Schedule from** to *Project finish date* and enter the date you must finish. OpenPlan works backwards, pushes every task as late as it can go, and works out the start date for you.
+In **Project › Project Information**, set **Schedule from** to *Project finish date* and enter the date you must finish. Neo Project works backwards, pushes every task as late as it can go, and works out the start date for you.
 
 ### Critical path sensitivity
 
@@ -281,18 +281,18 @@ The **Report** tab has ready-made reports: Dashboard, Resources, Costs, In Progr
 ### Saving
 
 * **Autosave** keeps your plan in this browser after every change. It disappears if you clear browser data, so keep a file for anything important.
-* **Ctrl+S** (or **File › Save**) writes an `.openplan` file. In Chrome and Edge, the first save asks where to put it and later saves update the same file. **Save As** makes a copy. Other browsers download the file.
+* **Ctrl+S** (or **File › Save**) writes an `.neoproject` file. In Chrome and Edge, the first save asks where to put it and later saves update the same file. **Save As** makes a copy. Other browsers download the file.
 * **File › Versions** saves named copies, such as "Before sprint 2", that you can restore later. They are kept in this browser only.
 
 ### Opening
 
-**File › Open › Browse…** opens an `.openplan` file, an older `.json` file, or a **Microsoft Project XML** (`.xml`) file. The plan you were working on is kept, so **Restore Previous Project** brings it back.
+**File › Open › Browse…** opens an `.neoproject` file, an older `.json` file, or a **Microsoft Project XML** (`.xml`) file. The plan you were working on is kept, so **Restore Previous Project** brings it back.
 
 ### Working with Microsoft Project
 
 * **Export:** **File › Export › Microsoft Project XML**, then in MS Project choose **File › Open** and pick the `.xml` file.
-* **Import:** in MS Project, choose **File › Save As** and save as **XML**, then open that file in OpenPlan.
-* Tasks, outline levels, durations, links and lags, constraints, deadlines, manual and inactive tasks, the work week and exceptions, resources and assignments carry over. Baselines, timephased data, custom attributes, task and resource calendars and cross-project links do not, and OpenPlan tells you when it skips something.
+* **Import:** in MS Project, choose **File › Save As** and save as **XML**, then open that file in Neo Project.
+* Tasks, outline levels, durations, links and lags, constraints, deadlines, manual and inactive tasks, the work week and exceptions, resources and assignments carry over. Baselines, timephased data, custom attributes, task and resource calendars and cross-project links do not, and Neo Project tells you when it skips something.
 
 ### Other files
 
@@ -303,7 +303,7 @@ The **Report** tab has ready-made reports: Dashboard, Resources, Costs, In Progr
 
 ### Opening files by double-clicking
 
-In Chrome or Edge, install OpenPlan from the address bar (**Install** icon). After that, double-clicking an `.openplan` file opens it in OpenPlan.
+In Chrome or Edge, install Neo Project from the address bar (**Install** icon). After that, double-clicking an `.neoproject` file opens it in Neo Project.
 
 ---
 
@@ -332,9 +332,9 @@ In Chrome or Edge, install OpenPlan from the address bar (**Install** icon). Aft
 | A resource shows a warning icon | The person is overbooked on those days. Use **Level All**, lower the units, or add working days. |
 | Dates look wrong around holidays | Check **Project › Change Working Time** for the work week and exceptions. |
 | My plan disappeared | Try **Ctrl+Z**, then **File › Open › Restore Previous Project**, then **File › Versions**. Autosave lives in one browser on one computer, so a different browser or a cleared cache will not have it. |
-| The file will not open | OpenPlan opens `.openplan`, `.json` and Microsoft Project `.xml` files, up to 20 MB. |
+| The file will not open | Neo Project opens `.neoproject`, `.json` and Microsoft Project `.xml` files, up to 20 MB. |
 | The Finish column is cut off | Drag the splitter to the right, or scroll the table sideways. |
 
 ---
 
-*OpenPlan is open source under the MIT licence.*
+*Neo Project is open source under the MIT licence.*

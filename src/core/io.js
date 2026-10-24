@@ -1,5 +1,5 @@
 import OP from './core.js';
-/* File formats: OpenPlan JSON, CSV, and SVG/PNG image export. */
+/* File formats: Neo Project JSON, CSV, and SVG/PNG image export. */
 OP.io = (function () {
   var U = OP.util, M = OP.model;
 
@@ -7,7 +7,7 @@ OP.io = (function () {
 
   function fromJSON(text) {
     var p = JSON.parse(text);
-    if (!p || !Array.isArray(p.tasks) || !Array.isArray(p.resources)) throw new Error('Not an OpenPlan project file.');
+    if (!p || !Array.isArray(p.tasks) || !Array.isArray(p.resources)) throw new Error('Not an Neo Project project file.');
     return M.normalize(p);
   }
 

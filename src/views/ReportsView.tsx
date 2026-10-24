@@ -120,7 +120,7 @@ const build: Record<string, (st: Store) => ReactNode> = {
         <Kpi k="BAC" v={money(ev.bac)} /><Kpi k="SPI" v={rt(ev.spi)} s={'SV ' + U.money(ev.sv)} />
         <Kpi k="CPI" v={rt(ev.cpi)} s={'CV ' + U.money(ev.cv)} /><Kpi k="EAC" v={money(ev.eac)} s={'VAC ' + U.money(ev.vac)} />
       </div>
-      <p className="muted">Status date {d(s.statusDn)}. BCWS = planned value, BCWP = earned value (baseline cost × % complete), ACWP = actual cost, estimated as planned cost × % complete (OpenPlan does not record actual spending), so CPI mainly reflects cost changes since the baseline. SPI/CPI below 1.00 means behind schedule / over cost.</p>
+      <p className="muted">Status date {d(s.statusDn)}. BCWS = planned value, BCWP = earned value (baseline cost × % complete), ACWP = actual cost, estimated as planned cost × % complete (Neo Project does not record actual spending), so CPI mainly reflects cost changes since the baseline. SPI/CPI below 1.00 means behind schedule / over cost.</p>
       <Table head={[['WBS'], ['Package'], ['BCWS', true], ['BCWP', true], ['ACWP', true], ['SV', true], ['CV', true], ['SPI', true], ['CPI', true]]}
         rows={s.rows.filter((r: Row) => r.task.level === 1).map((r: Row) => [r.wbs, r.task.name, U.money(r.bcws), U.money(r.bcwp), U.money(r.acwp), U.money(r.bcwp - r.bcws), U.money(r.bcwp - r.acwp),
           r.bcws ? (r.bcwp / r.bcws).toFixed(2) : '—', r.acwp ? (r.bcwp / r.acwp).toFixed(2) : '—'])}

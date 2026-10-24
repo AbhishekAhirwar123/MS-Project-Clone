@@ -238,8 +238,8 @@ describe('project files', () => {
     expect(back).toEqual(M.normalize(JSON.parse(JSON.stringify(p))));
   });
 
-  it('rejects files that are not OpenPlan projects', () => {
-    expect(() => OP.io.fromJSON('{"hello":1}')).toThrow('Not an OpenPlan project file.');
+  it('rejects files that are not Neo Project projects', () => {
+    expect(() => OP.io.fromJSON('{"hello":1}')).toThrow('Not an Neo Project project file.');
     expect(() => OP.io.fromJSON('not json')).toThrow();
   });
 });

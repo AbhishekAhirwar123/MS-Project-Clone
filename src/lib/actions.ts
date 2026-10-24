@@ -10,19 +10,19 @@ const U = OP.util, C = OP.charts, IO = OP.io;
 
 const W = window as any;
 const FS = !!W.showSaveFilePicker;
-const TYPES = [{ description: 'OpenPlan project', accept: { 'application/x-openplan': ['.openplan'] } }];
+const TYPES = [{ description: 'Neo Project project', accept: { 'application/x-neoproject': ['.neoproject'] } }];
 let handle: any = null;
 
 const MAX_FILE_MB = 20;
 function checkSize(file: File) {
-  if (file.size > MAX_FILE_MB * 1024 * 1024) throw new Error('The file is larger than ' + MAX_FILE_MB + ' MB, so it is not an OpenPlan project.');
+  if (file.size > MAX_FILE_MB * 1024 * 1024) throw new Error('The file is larger than ' + MAX_FILE_MB + ' MB, so it is not an Neo Project project.');
 }
 
 async function saveFile(as: boolean) {
   const st = S();
-  if (!FS) { U.download(U.slug(st.p.name) + '.openplan', IO.toJSON(st.p), 'application/x-openplan'); st.toast('Project file downloaded'); return; }
+  if (!FS) { U.download(U.slug(st.p.name) + '.neoproject', IO.toJSON(st.p), 'application/x-neoproject'); st.toast('Project file downloaded'); return; }
   try {
-    if (as || !handle) handle = await W.showSaveFilePicker({ suggestedName: U.slug(st.p.name) + '.openplan', types: TYPES });
+    if (as || !handle) handle = await W.showSaveFilePicker({ suggestedName: U.slug(st.p.name) + '.neoproject', types: TYPES });
     const w = await handle.createWritable();
     await w.write(IO.toJSON(st.p));
     await w.close();
@@ -32,7 +32,7 @@ async function saveFile(as: boolean) {
   }
 }
 
-// OpenPlan files are JSON; Microsoft Project XML is recognised by its extension or its first characters.
+// Neo Project files are JSON; Microsoft Project XML is recognised by its extension or its first characters.
 const isMspXml = (name: string, text: string) => /\.xml$/i.test(name) || /^\s*(<\?xml|<Project)/.test(text);
 
 function readProject(name: string, text: string): { project: Project; note: string } {
@@ -46,13 +46,13 @@ async function openHandle(h: any) {
   checkSize(file);
   const { project, note } = readProject(file.name, await file.text());
   S().replaceProject(project, 'Opened ' + file.name + note);
-  // An XML file is an import, so Save should not write OpenPlan JSON over it.
+  // An XML file is an import, so Save should not write Neo Project JSON over it.
   handle = isMspXml(file.name, '') ? null : h;
 }
 
 async function openFile() {
   try {
-    const [h] = await W.showOpenFilePicker({ types: [{ description: 'Project files', accept: { 'application/x-openplan': ['.openplan'], 'application/json': ['.json'], 'application/xml': ['.xml'] } }] });
+    const [h] = await W.showOpenFilePicker({ types: [{ description: 'Project files', accept: { 'application/x-neoproject': ['.neoproject'], 'application/json': ['.json'], 'application/xml': ['.xml'] } }] });
     await openHandle(h);
   } catch (e: any) {
     if (e.name !== 'AbortError') S().toast('Could not open file: ' + e.message, true);
@@ -160,7 +160,7 @@ export function runAction(a: string) {
 function pickFile(insert: boolean) {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.openplan,.json,.xml,application/json,application/xml,text/xml';
+  input.accept = '.neoproject,.json,.xml,application/json,application/xml,text/xml';
   input.onchange = () => {
     const file = input.files && input.files[0];
     if (!file) return;

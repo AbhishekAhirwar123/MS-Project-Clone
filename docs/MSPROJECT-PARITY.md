@@ -1,11 +1,11 @@
-# OpenPlan vs Microsoft Project: parity analysis and roadmap
+# Neo Project vs Microsoft Project: parity analysis and roadmap
 
 Status key: **Done** = works like MS Project. **Partial** = exists but differs. **Missing** = not present.
 Reference: Microsoft Project Desktop (Professional 2021 / Plan 3 feature set). Server-only features (Project Server, Project Online, PWA, Teams) are out of scope.
 
 ## 1. Scheduling engine and logic
 
-| MS Project behaviour | OpenPlan | Status |
+| MS Project behaviour | Neo Project | Status |
 |---|---|---|
 | Auto-scheduled tasks (CPM forward/backward pass) | `OP.schedule` in `src/core/core.js` | Done |
 | **Manually scheduled tasks** (user-typed start/finish/duration are never moved; text values like "TBD" allowed) | none | Missing |
@@ -97,13 +97,13 @@ Status: dialogs and toggles for Inspect, Inactivate, Respect Links, Deliverable,
 
 MS Project has ~25 built-in visual reports (Dashboard: Project Overview, Burndown, Cost Overview, Work Overview, Upcoming Tasks, Critical Tasks, Late Tasks, Milestones; Resources; Costs; In Progress; plus a Custom Report editor with charts, tables, images, text boxes and field-linked cells).
 
-OpenPlan: 10 fixed reports, no **burndown**, no **Cash Flow**, no **Resource Cost Overview**, no **Upcoming Tasks**, no custom report editor. **Partial**.
+Neo Project: 10 fixed reports, no **burndown**, no **Cash Flow**, no **Resource Cost Overview**, no **Upcoming Tasks**, no custom report editor. **Partial**.
 
 ## 7. Files, import, export and interoperability
 
 | Feature | Status |
 |---|---|
-| Open/save native file | `.openplan` JSON, Done |
+| Open/save native file | `.neoproject` JSON, Done |
 | **Open and save `.mpp`** | Missing (binary format; no maintained open JS library) |
 | **MS Project XML (`.xml`) import/export** | **Done** (`src/lib/mspxml.ts`): tasks, outline, durations incl. elapsed, links with lag units, constraints, deadlines, manual/inactive, calendar and exceptions, resources with rate units, assignments. Not carried over: baselines, timephased data, extended attributes, task/resource calendars, cross-project links (reported as warnings). Written to the MSPDI schema but not yet opened in MS Project itself, so check a real file before relying on it. |
 | `.mpt` templates, project templates | 4 built-in templates |
@@ -115,7 +115,7 @@ OpenPlan: 10 fixed reports, no **burndown**, no **Cash Flow**, no **Resource Cos
 
 ## 8. Application chrome and UX
 
-Ribbon, Backstage, undo/redo (one level in MS Project, many in OpenPlan), status bar, keyboard shortcuts, dark mode are in place. Missing: **Quick Access Toolbar**, **Tell Me / search box**, right-click **context menus** (Task, Resource, column header, bar), **Task Information dialog on double-click**, **Project Information dialog with Statistics**, **Options dialog** (Schedule, Calculation, Display, General, Advanced), **Undo list**, **Zoom slider**, row **drag-and-drop** reorder, **Task Inspector pane**, **wizards**.
+Ribbon, Backstage, undo/redo (one level in MS Project, many in Neo Project), status bar, keyboard shortcuts, dark mode are in place. Missing: **Quick Access Toolbar**, **Tell Me / search box**, right-click **context menus** (Task, Resource, column header, bar), **Task Information dialog on double-click**, **Project Information dialog with Statistics**, **Options dialog** (Schedule, Calculation, Display, General, Advanced), **Undo list**, **Zoom slider**, row **drag-and-drop** reorder, **Task Inspector pane**, **wizards**.
 
 ## 9. Phase 1 status (engine fidelity)
 
