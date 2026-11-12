@@ -3,10 +3,13 @@ import { useShallow } from 'zustand/react/shallow';
 import OP from './core';
 import type { Project, Schedule, ViewName } from './types';
 import { capHistory } from './lib/history';
+import { api, ApiError, type ProjectSummary } from './lib/api';
+import { canEdit } from '../shared/roles';
 
-const STORE = 'neoproject.project';
-export const PREV_STORE = 'neoproject.project.previous';
+// Projects are stored in the database through the API. Only view preferences (zoom, columns, theme)
+// and the id of the last project you opened are kept in this browser.
 const UISTORE = 'neoproject.ui';
+const LAST_PROJECT = 'neoproject.lastProject';
 
 export const DEFAULT_COLS = ['id', 'ind', 'name', 'duration', 'start', 'finish', 'preds', 'res', 'cost'];
 export const ZOOMS = ['day', 'week', 'month', 'quarter'] as const;
@@ -56,7 +59,9 @@ const UI_DEFAULTS: UIState = {
 const PERSISTED_UI: (keyof UIState)[] = ['view', 'zoom', 'critical', 'gridW', 'ganttHide', 'drawer', 'netDates', 'wbsDepth', 'filter', 'group', 'sort', 'cols', 'showBaseline', 'report', 'tab', 'timeline', 'theme', 'bars', 'fullYear', 'guide'];
 
 export interface Dialog { type: string; props?: any }
-export type SaveState = 'ok' | 'full' | 'off';
+// ok: everything is saved · pending/saving: changes on their way · error: the last save failed and will be retried
+// conflict: someone else saved first · readonly: view-only access, nothing to save
+export type SaveState = 'ok' | 'pending' | 'saving' | 'error' | 'conflict' | 'readonly';
 
 export interface Store extends UIState {
   p: Project;
@@ -64,6 +69,10 @@ export interface Store extends UIState {
   undo: string[];
   redo: string[];
   saveState: SaveState;
+  saveError: string;
+  // The open project's record on the server (null on the projects page), and the version this editor last saved or loaded.
+  project: ProjectSummary | null;
+  serverVersion: number;
   sel: number[];
   anchor: number | null;
   collapsed: Record<string, boolean>;
@@ -84,6 +93,12 @@ export interface Store extends UIState {
   toast: (text: string, err?: boolean) => void;
   openDialog: (type: string, props?: any) => void;
   closeDialog: () => void;
+
+  openProject: (id: string, quiet?: boolean) => Promise<boolean>;
+  showProject: (project: ProjectSummary, data: Project) => void;
+  closeProject: () => Promise<void>;
+  saveNow: () => Promise<boolean>;
+  resolveConflict: (keep: 'mine' | 'theirs') => Promise<void>;
 }
 
 function loadUI(): Partial<UIState> {
@@ -115,49 +130,63 @@ function saveUI(st: Store) {
   } catch { /* storage unavailable */ }
 }
 
-let loadError = false, autosaveBlocked = false;
+/* ---------- saving to the server ---------- */
 
-function persistNow(json: string): SaveState {
-  if (autosaveBlocked) return 'off';
-  try {
-    localStorage.setItem(STORE, json);
-    return 'ok';
-  } catch (e: any) {
-    return e && (e.name === 'QuotaExceededError' || e.code === 22) ? 'full' : 'off';
-  }
-}
+// Changes are sent shortly after you stop editing. One save runs at a time; edits made meanwhile go in the next one.
+// Each save says which version it started from, so the server can refuse it if someone else saved in between.
+let pending: string | null = null, timer = 0, retryTimer = 0;
+let saving: Promise<boolean> | null = null;
 
-// Autosave is debounced; pending changes are written when the page is hidden or closed.
-let pending: string | null = null, timer = 0;
-function flush() {
-  clearTimeout(timer);
-  if (pending == null) return;
-  const state = persistNow(pending);
-  pending = null;
-  useStore.setState({ saveState: state });
-}
 function persist(json: string) {
+  if (!S().project) return;
   pending = json;
+  if (!saving && S().saveState !== 'conflict') useStore.setState({ saveState: 'pending' });
   clearTimeout(timer);
-  timer = window.setTimeout(flush, 300);
+  timer = window.setTimeout(() => { void flush(); }, 800);
 }
 
-function loadProject(): Project {
-  let saved: string | null = null;
-  try { saved = localStorage.getItem(STORE); } catch { /* storage unavailable */ }
-  if (saved) {
-    try {
-      return OP.io.fromJSON(saved);
-    } catch {
-      // Keep the unreadable copy; if it cannot be kept, never overwrite it.
-      loadError = true;
-      try { localStorage.setItem(STORE + '.unreadable-' + Date.now(), saved); } catch { autosaveBlocked = true; }
-    }
-  }
-  return OP.model.normalize(OP.demo());
+// Sends any unsaved changes. Resolves true when everything is saved.
+function flush(): Promise<boolean> {
+  clearTimeout(timer);
+  clearTimeout(retryTimer);
+  if (saving) return saving.then(() => (pending == null ? S().saveState === 'ok' : flush()));
+  const st = S();
+  if (pending == null) return Promise.resolve(st.saveState === 'ok' || st.saveState === 'readonly');
+  if (!st.project || st.saveState === 'conflict') return Promise.resolve(false);
+  const body = pending, id = st.project.id;
+  pending = null;
+  useStore.setState({ saveState: 'saving' });
+  saving = api<{ version: number }>('PUT', '/projects/' + id, { data: JSON.parse(body), baseVersion: st.serverVersion }).then(r => {
+    if (S().project?.id === id) useStore.setState({ serverVersion: r.version, saveState: pending == null ? 'ok' : 'pending', saveError: '' });
+    return true;
+  }, (e: ApiError) => {
+    if (S().project?.id !== id) return false;
+    if (pending == null) pending = body;
+    if (e.status === 409) { useStore.setState({ saveState: 'conflict', saveError: e.message }); return false; }
+    useStore.setState({ saveState: 'error', saveError: e.message });
+    // Network and server errors are retried; refusals (no access, too large) are not.
+    if (e.status === 0 || e.status >= 500) retryTimer = window.setTimeout(() => { void flush(); }, 10000);
+    return false;
+  }).finally(() => { saving = null; });
+  return saving.then(ok => (ok && pending != null ? flush() : ok));
 }
 
-const initial = loadProject();
+function editable(): boolean {
+  const st = S();
+  if (!st.project || canEdit(st.project.access)) return true;
+  st.toast('You have view-only access to this project.', true);
+  return false;
+}
+
+function rememberProject(id: string | null) {
+  try { if (id) localStorage.setItem(LAST_PROJECT, id); else localStorage.removeItem(LAST_PROJECT); } catch { /* storage unavailable */ }
+}
+export function lastProjectId(): string | null {
+  try { return localStorage.getItem(LAST_PROJECT); } catch { return null; }
+}
+
+const empty = (): Project => OP.model.normalize(OP.model.blank());
+const initial = empty();
 let toastId = 0;
 
 export const useStore = create<Store>((set, get) => ({
@@ -167,7 +196,10 @@ export const useStore = create<Store>((set, get) => ({
   s: OP.schedule(initial),
   undo: [],
   redo: [],
-  saveState: loadError ? (autosaveBlocked ? 'off' : 'ok') : persistNow(JSON.stringify(initial)),
+  saveState: 'ok',
+  saveError: '',
+  project: null,
+  serverVersion: 0,
   sel: [],
   anchor: null,
   collapsed: {},
@@ -190,8 +222,9 @@ export const useStore = create<Store>((set, get) => ({
     get().setUI({ view, tab, netZoom: 1, backstage: false, menu: null });
   },
 
-  // Every change to the project goes through commit() so it can be undone.
+  // Every change to the project goes through commit() so it can be undone, saved, and refused on view-only projects.
   commit: fn => {
+    if (!editable()) return false;
     const before = JSON.stringify(get().p);
     const next: Project = JSON.parse(before);
     if (fn(next) === false) return false;
@@ -205,7 +238,7 @@ export const useStore = create<Store>((set, get) => ({
 
   undoAct: () => {
     const { undo, redo, p } = get();
-    if (!undo.length) return;
+    if (!undo.length || !editable()) return;
     const text = undo[undo.length - 1], prev = JSON.parse(text);
     set({ p: prev, s: OP.schedule(prev), undo: undo.slice(0, -1), redo: capHistory(redo.concat([JSON.stringify(p)])) });
     persist(text);
@@ -213,17 +246,17 @@ export const useStore = create<Store>((set, get) => ({
 
   redoAct: () => {
     const { undo, redo, p } = get();
-    if (!redo.length) return;
+    if (!redo.length || !editable()) return;
     const text = redo[redo.length - 1], next = JSON.parse(text);
     set({ p: next, s: OP.schedule(next), redo: redo.slice(0, -1), undo: capHistory(undo.concat([JSON.stringify(p)])) });
     persist(text);
   },
 
-  // The replaced project is kept in browser storage so it can be restored after a reload.
+  // Replaces the open project's plan (e.g. restoring a version). Undo brings the previous plan back.
   replaceProject: (p, msg) => {
+    if (!editable()) return;
     OP.model.normalize(p);
     const old = JSON.stringify(get().p);
-    try { localStorage.setItem(PREV_STORE, old); } catch { /* storage unavailable */ }
     set({ p, s: OP.schedule(p), undo: capHistory(get().undo.concat([old])), redo: [], sel: [], collapsed: {} });
     persist(JSON.stringify(p));
     if (msg) get().toast(msg);
@@ -233,7 +266,75 @@ export const useStore = create<Store>((set, get) => ({
 
   toast: (text, err = false) => set({ toastMsg: { text, err, id: ++toastId } }),
   openDialog: (type, props) => set({ dialog: { type, props }, menu: null }),
-  closeDialog: () => set({ dialog: null })
+  closeDialog: () => set({ dialog: null }),
+
+  openProject: async (id, quiet = false) => {
+    try {
+      const r = await api<{ project: ProjectSummary; data: Project }>('GET', '/projects/' + encodeURIComponent(id));
+      get().showProject(r.project, r.data);
+      return true;
+    } catch (e: any) {
+      rememberProject(null);
+      if (!quiet && !(e instanceof ApiError && e.status === 401)) get().toast('Could not open the project: ' + e.message, true);
+      return false;
+    }
+  },
+
+  showProject: (project, data) => {
+    clearTimeout(timer);
+    clearTimeout(retryTimer);
+    pending = null;
+    const p = OP.io.fromJSON(JSON.stringify(data));
+    set({
+      p, s: OP.schedule(p), project, serverVersion: project.version, undo: [], redo: [], sel: [], anchor: null, collapsed: {},
+      saveState: canEdit(project.access) ? 'ok' : 'readonly', saveError: '', backstage: false, menu: null
+    });
+    rememberProject(project.id);
+  },
+
+  closeProject: async () => {
+    const close = () => {
+      clearTimeout(timer);
+      clearTimeout(retryTimer);
+      pending = null;
+      const p = empty();
+      set({ project: null, p, s: OP.schedule(p), undo: [], redo: [], sel: [], collapsed: {}, saveState: 'ok', saveError: '', backstage: false, menu: null });
+      rememberProject(null);
+    };
+    if (await flush()) { close(); return; }
+    const st = get();
+    if (pending == null || st.saveState === 'readonly') { close(); return; }
+    ask('Your latest changes could not be saved (' + (st.saveError || 'unknown error') + '). Leave the project and lose them?', close, 'Leave without saving', 'Unsaved changes');
+  },
+
+  saveNow: async () => {
+    if (get().saveState === 'readonly') { get().toast('You have view-only access, so there is nothing to save.'); return false; }
+    const ok = await flush();
+    if (ok) get().toast('All changes saved');
+    else if (get().saveState === 'conflict') get().toast(get().saveError + ' Choose which copy to keep in the status bar.', true);
+    else get().toast('Could not save: ' + (get().saveError || 'unknown error'), true);
+    return ok;
+  },
+
+  // After a conflict: "theirs" reloads the saved project (your unsaved changes are dropped);
+  // "mine" saves your copy over theirs.
+  resolveConflict: async keep => {
+    const project = get().project;
+    if (!project) return;
+    if (keep === 'theirs') {
+      pending = null;
+      if (await get().openProject(project.id)) get().toast('Loaded the latest saved version');
+      return;
+    }
+    try {
+      const r = await api<{ project: ProjectSummary }>('GET', '/projects/' + project.id);
+      pending = JSON.stringify(get().p);
+      set({ serverVersion: r.project.version, saveState: 'pending', saveError: '' });
+      await get().saveNow();
+    } catch (e: any) {
+      get().toast('Could not save: ' + e.message, true);
+    }
+  }
 }));
 OP.util.setFullYear(useStore.getState().fullYear);
 
@@ -248,25 +349,14 @@ export function useApp(): Store {
   })) as Store;
 }
 
-window.addEventListener('pagehide', flush);
-
-// Another tab saved the project: show its version here so the two tabs don't overwrite each other.
-window.addEventListener('storage', e => {
-  if (e.key !== STORE || !e.newValue) return;
-  try {
-    const p = OP.io.fromJSON(e.newValue);
-    pending = null;
-    clearTimeout(timer);
-    useStore.setState({ p, s: OP.schedule(p), sel: [] });
-    S().toast('Project updated from another tab');
-  } catch { /* ignore unreadable data */ }
+// Warn before closing the tab with unsaved changes, and try to send them as the page goes away.
+window.addEventListener('beforeunload', e => { if (pending != null || saving) e.preventDefault(); });
+window.addEventListener('pagehide', () => {
+  const st = S();
+  if (pending == null || saving || !st.project || st.saveState === 'conflict') return;
+  api('PUT', '/projects/' + st.project.id, { data: JSON.parse(pending), baseVersion: st.serverVersion }, { keepalive: true }).catch(() => { /* best effort */ });
 });
 
-if (loadError) {
-  setTimeout(() => S().toast(autosaveBlocked
-    ? 'Your autosaved project could not be read and was left untouched. Autosave is off: use File › Save.'
-    : 'Your autosaved project could not be read. A copy was kept in browser storage and the sample project was opened.', true));
-}
 
 export function taskByUid(uid: number) { return S().p.tasks.find(t => t.uid === uid) || null; }
 export function resByUid(uid: number) { return S().p.resources.find(r => r.uid === uid) || null; }

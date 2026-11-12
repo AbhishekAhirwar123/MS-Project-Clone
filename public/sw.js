@@ -1,7 +1,7 @@
 // Neo Project offline support: pages load from the network when online and from the cache when offline.
 // Built files have content hashes in their names, so they are served from the cache once stored;
 // other files are served from the cache and refreshed in the background.
-const CACHE = 'neoproject-v1';
+const CACHE = 'neoproject-v2';
 const HASHED = /-[\w-]{8}\.(js|css|woff2)$/;
 
 self.addEventListener('install', event => {
@@ -19,7 +19,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const req = event.request;
   const url = new URL(req.url);
-  if (req.method !== 'GET' || url.origin !== location.origin) return;
+  // API responses (sign-in state, projects) must always come from the server, never from the cache.
+  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req)

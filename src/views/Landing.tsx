@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import '@fontsource-variable/archivo';
 import OP from '../core';
-import { useApp, S, ask } from '../store';
+import { useApp } from '../store';
+import { whenSignedIn } from '../auth';
 import Icon from '../components/Icon';
 import type { Schedule } from '../types';
 
@@ -13,11 +14,10 @@ const PAGE_TITLE = document.title;
 export const enterApp = () => { location.hash = 'app'; };
 const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 
+// The sample becomes a new project once you are signed in (projects live in the database).
 function openSample() {
-  ask('Open the sample project? Your current plan can be restored with Undo.', () => {
-    S().replaceProject(OP.demo(), 'Sample project loaded');
-    enterApp();
-  }, 'Open sample');
+  enterApp();
+  whenSignedIn(() => { void import('../lib/actions').then(m => m.runAction('sample')); });
 }
 
 const STEPS: [string, string][] = [
@@ -54,8 +54,8 @@ const AUDIENCE: [string, string, string][] = [
 ];
 
 const FAQ: [string, string][] = [
-  ['Is Neo Project really free?', 'Yes. There are no accounts, trials or paid tiers.'],
-  ['Where is my project stored?', 'In this browser, saved automatically as you work, and in .neoproject files you save to your computer. Your plan is never uploaded anywhere.'],
+  ['How do I get an account?', 'Your administrator creates it and gives you a temporary password, which you replace at first sign-in. Your role (admin, project manager, team member or viewer) decides what you can do.'],
+  ['Where is my project stored?', 'In your organisation’s database, saved automatically as you work. Only you, the people it is shared with, and admins can see it. You can also download a copy as an .neoproject file.'],
   ['Can I put the charts in my report?', 'Yes. Every chart exports as PNG or SVG, and each of the 10 reports prints or saves as a PDF.'],
   ['Does it work on a phone?', 'This page does. The planner itself has a spreadsheet-style grid and a timeline, so it works best on a laptop or desktop screen.']
 ];
@@ -212,11 +212,11 @@ export default function Landing() {
 
         <section className="lp-block" id="files">
           <div className="lp-head">
-            <h2>Your work stays with you</h2>
-            <p>Neo Project has no server and no account. Here’s where your plans are kept. No analytics or tracking scripts are used; project data is never sent.</p>
+            <h2>Your work, safely shared</h2>
+            <p>Sign in with your account and pick up where you left off on any device. No analytics or tracking scripts are used.</p>
           </div>
           <div className="lp-cols">
-            <div><Icon name="save" /><h3>In your browser</h3><p>Every change is saved automatically on this device, so you can close the tab and continue later.</p></div>
+            <div><Icon name="save" /><h3>In your team’s database</h3><p>Every change is saved automatically. Share each project with the people who need it, as editors or viewers.</p></div>
             <div><Icon name="file" /><h3>In .neoproject files</h3><p>Save to a file on your computer. In Chrome and Edge, install the app and double-click a file to open it.</p></div>
             <div><Icon name="download" /><h3>In other tools</h3><p>Export CSV for spreadsheets, and PNG or SVG for your report.</p></div>
           </div>

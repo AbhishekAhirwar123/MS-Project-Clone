@@ -3,29 +3,26 @@ import { createRoot } from 'react-dom/client';
 import OP from './core';
 import DialogHost from './components/Dialogs';
 import { Toast } from './components/Toast';
-import { useStore, S, ask } from './store';
-import { handleLaunchFiles } from './lib/actions';
+import { useStore, S } from './store';
+import { handleLaunchFiles, openSharedCopy } from './lib/actions';
 import { SHARE_PREFIX, decodePlan } from './lib/share';
 import './styles.css';
 
-const W = window as any;
-
-// Opens a plan carried in a share link, after asking, and removes the plan data from the address bar.
+// Takes a plan carried in a share link, removes it from the address bar, and offers to save it as a new
+// project once the user is signed in.
 async function openSharedPlan() {
   if (!location.hash.startsWith(SHARE_PREFIX)) return;
   const data = location.hash.slice(SHARE_PREFIX.length);
   history.replaceState(null, '', location.pathname + location.search);
   try {
     const p = await decodePlan(data);
-    ask('Open a copy of the shared plan “' + p.name + '”? Your current plan can be restored from File › Open › Restore Previous Project.', () => {
-      S().replaceProject(p, 'Shared plan opened');
-      location.hash = 'app';
-    }, 'Open plan');
+    location.hash = 'app';
+    openSharedCopy(p);
   } catch {
     S().toast('This share link is incomplete or damaged. Ask for the link again, or for the .neoproject file.', true);
   }
 }
-const loadApp = () => import('./App');
+const loadApp = () => import('./Workspace');
 const App = lazy(loadApp);
 const Landing = lazy(() => import('./views/Landing'));
 
@@ -55,15 +52,14 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
     if (!this.state.error) return this.props.children;
     const resetView = () => { try { localStorage.removeItem('neoproject.ui'); } catch { /* storage unavailable */ } location.reload(); };
     const backup = () => {
-      let text = '';
-      try { text = localStorage.getItem('neoproject.project') || ''; } catch { /* storage unavailable */ }
-      if (text) OP.util.download('neoproject-backup.neoproject', text, 'application/x-neoproject');
+      const st = S();
+      if (st.project) OP.util.download(OP.util.slug(st.p.name) + '-backup.neoproject', OP.io.toJSON(st.p), 'application/x-neoproject');
     };
     return (
       <div className="crash">
         <h1>Something went wrong</h1>
         <p>Neo Project hit an error: {this.state.error.message}</p>
-        <p>Your project is still saved in this browser. Download a backup copy, then reset the view settings and reload.</p>
+        <p>Your last saved changes are safe on the server. Download a backup of the plan as it is now, then reset the view settings and reload.</p>
         <div className="crash-actions">
           <button className="btn" onClick={backup}>Download project backup</button>
           <button className="btn primary" onClick={resetView}>Reset view settings</button>

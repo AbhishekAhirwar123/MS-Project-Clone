@@ -6,3 +6,4 @@ dist/
 .env*
 .obsidian/
 Neo Project.md
+!.env.example

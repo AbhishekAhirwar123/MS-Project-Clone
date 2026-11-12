@@ -7,12 +7,13 @@ import type { CalException, CustomField, Resource } from '../types';
 import { version } from '../../package.json';
 import { projectFromTable } from '../lib/importTable';
 import { shareUrl } from '../lib/share';
-import { loadProject } from '../lib/actions';
+import { createProject } from '../lib/actions';
+import { AccountDialog, PasswordDialog, SharingDialog } from './AccountDialogs';
 
 const U = OP.util;
 const STATUSES = ['Draft', 'In review', 'Approved', 'Baselined', 'Final'];
 
-function Modal({ title, children, onSubmit, okLabel = 'Save', cancelLabel = 'Cancel', noOk }: {
+export function Modal({ title, children, onSubmit, okLabel = 'Save', cancelLabel = 'Cancel', noOk }: {
   title: string; children: ReactNode; onSubmit?: (fd: FormData) => boolean | void; okLabel?: ReactNode; cancelLabel?: string; noOk?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -244,7 +245,7 @@ const SHORTCUTS: [ReactNode, string][] = [
   [<kbd>Ins</kbd>, 'Insert a new task'],
   [<kbd>Del</kbd>, 'Delete the selected tasks'],
   [<><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></>, 'Undo / redo'],
-  [<><kbd>Ctrl</kbd>+<kbd>S</kbd></>, 'Save to a file']
+  [<><kbd>Ctrl</kbd>+<kbd>S</kbd></>, 'Save now']
 ];
 
 function AboutDialog() {
@@ -254,7 +255,7 @@ function AboutDialog() {
         <img src="./assets/logo.png" alt="" width={44} height={44} />
         <div><h3>Neo Project</h3><span className="muted">Version {version} · Free, browser-based project planning</span></div>
       </div>
-      <p>Plan with a WBS, Gantt chart, critical path, network diagram, resources, leveling, baselines, tracking, earned value, budget and reports. Your project is saved automatically in this browser only; use <b>File › Save</b> to keep a copy as an .neoproject file.</p>
+      <p>Plan with a WBS, Gantt chart, critical path, network diagram, resources, leveling, baselines, tracking, earned value, budget and reports. Your project is saved automatically to your organisation's database; use <b>File › Save › Download a copy</b> to keep an .neoproject file.</p>
       <section className="about-sec">
         <h4>Keyboard shortcuts</h4>
         <table className="about-keys"><tbody>{SHORTCUTS.map(([keys, action]) => <tr key={action}><td>{keys}</td><td>{action}</td></tr>)}</tbody></table>
@@ -288,7 +289,7 @@ function ImportDialog() {
   return (
     <Modal title="Import tasks from Excel or CSV" okLabel="Import" onSubmit={() => {
       if (!ok) return false;
-      loadProject(ok.project, 'Imported ' + ok.tasks + ' task' + (ok.tasks > 1 ? 's' : '') + (ok.warnings.length ? '. ' + ok.warnings.join('; ') + '.' : ''));
+      void createProject(ok.project, 'Imported ' + ok.tasks + ' task' + (ok.tasks > 1 ? 's' : '') + ' into a new project' + (ok.warnings.length ? '. ' + ok.warnings.join('; ') + '.' : ''));
     }}>
       <p>Copy the task list in Excel or Google Sheets and paste it below, or choose a CSV file. Columns are matched by their headings: Task Name, Duration, Predecessors, Resources, Level or WBS, % Complete and Notes. Without headings, the columns are read as task name, duration and predecessors.</p>
       <textarea className="inp mono" id="import-text" rows={9} value={text} onChange={e => setText(e.target.value)} aria-label="Task list"
@@ -297,7 +298,7 @@ function ImportDialog() {
         <button type="button" className="btn" onClick={() => fileRef.current?.click()}><Icon name="upload" />Choose CSV file…</button>
         <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,text/csv" hidden onChange={e => pickFile(e.target.files?.[0])} />
       </div>
-      {ok && <p className="muted">Found {ok.tasks} task{ok.tasks > 1 ? 's' : ''} and {ok.resources} resource{ok.resources === 1 ? '' : 's'}. Importing replaces the current plan, which you can bring back from File › Open › Restore Previous Project.</p>}
+      {ok && <p className="muted">Found {ok.tasks} task{ok.tasks > 1 ? 's' : ''} and {ok.resources} resource{ok.resources === 1 ? '' : 's'}. Importing creates a new project; the current one is not changed.</p>}
       {ok && ok.warnings.length > 0 && <p className="alert warn inline">{ok.warnings.join('; ')}.</p>}
       {result && 'error' in result && <p className="alert inline">{result.error}</p>}
     </Modal>
@@ -345,6 +346,9 @@ export default function DialogHost() {
     case 'import': return <ImportDialog />;
     case 'share': return <ShareDialog />;
     case 'confirm': return <ConfirmDialog {...dialog.props} />;
+    case 'account': return <AccountDialog />;
+    case 'password': return <PasswordDialog />;
+    case 'sharing': return <SharingDialog {...dialog.props} />;
     default: return null;
   }
 }

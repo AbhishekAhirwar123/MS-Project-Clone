@@ -56,27 +56,59 @@ It runs entirely in the browser and has no server or account. Projects are saved
 | Build | Vite 8 |
 | Tests and lint | Vitest, ESLint |
 | Scheduling and charts | Plain JavaScript modules rendering SVG (`src/core/`) |
-| Storage | Browser localStorage, and the File System Access API for project files |
+| API | Express 5 on Node (`server/`), deployed as a Vercel serverless function (`api/index.ts`) |
+| Database | MongoDB Atlas (users, sessions, projects, versions) |
+| Auth | scrypt password hashes, server-side sessions in an httpOnly cookie, role-based access |
+
+## Accounts and roles
+
+There is no public sign-up. An admin creates every account with a temporary password, and the user picks their own password at first sign-in.
+
+| Role | Can do |
+|---|---|
+| **Admin** | Manage users (create, change role, reset password, deactivate). Full control of every project. |
+| **Project manager** | Create projects. Edit, share and delete the projects they own. |
+| **Team member** | Open projects shared with them; edit those shared with **Can edit** access. |
+| **Viewer** | Read-only access to projects shared with them, whatever the share says. |
+
+Each project has one **owner** (an admin or project manager) and a list of people it is shared with as **Can edit** or **Can view**. All checks happen on the server ([shared/roles.ts](shared/roles.ts)); the UI only hides what you can't do.
 
 ## Getting started
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org) 18 or later
+- [Node.js](https://nodejs.org) 22 or later
+- A [MongoDB Atlas](https://www.mongodb.com/atlas) cluster (the free M0 tier is enough)
 
-### Installation
+### 1. Set up MongoDB Atlas
+
+1. Create a cluster in Atlas (any provider and region).
+2. **Database Access** › add a database user with a strong password and the **Read and write to any database** role.
+3. **Network Access** › add your IP address for local development. Vercel uses changing IP addresses, so for the deployed site either allow `0.0.0.0/0` (access is still protected by the database user's password) or use the [Vercel–Atlas integration](https://vercel.com/integrations/mongodbatlas).
+4. **Connect › Drivers** › copy the connection string (`mongodb+srv://…`).
+
+The collections (`users`, `sessions`, `projects`, `versions`, `login_attempts`) and their indexes are created automatically on first use.
+
+### 2. Configure and create the first admin
 
 ```bash
 git clone https://github.com/AbhishekAhirwar123/MS-Project-Clone.git
 cd MS-Project-Clone
 npm install
+cp .env.example .env      # then fill in MONGODB_URI and the ADMIN_* values
+npm run seed:admin        # creates the admin account; then remove ADMIN_PASSWORD from .env
 ```
 
-### Run in development
+### 3. Run in development
+
+Run the API and the web app in two terminals:
 
 ```bash
-npm run dev        # http://localhost:5173
+npm run dev:api    # API on http://localhost:3001
+npm run dev        # app on http://localhost:5175 (forwards /api to the API)
 ```
+
+Open the app, sign in as the admin, and add users under **Users**.
 
 ### Build for production
 
@@ -104,6 +136,9 @@ One-time setup:
    - `VERCEL_TOKEN`: the token
    - `VERCEL_ORG_ID`: the `orgId`
    - `VERCEL_PROJECT_ID`: the `projectId`
+5. In Vercel, go to **Project › Settings › Environment Variables** and add `MONGODB_URI` and `MONGODB_DB` for Production and Preview. Use a separate database (or cluster) for previews if you don't want them touching production data.
+
+Requests to `/api/*` are routed to the Express app by the rewrite in `vercel.json`. A Vercel function accepts request bodies up to 4.5 MB, so very large projects (several thousand tasks with long notes) may be too big to save.
 
 If you imported the repository into Vercel, turn off Vercel's own Git deployments (**Project › Settings › Git**) so each push deploys only once.
 
@@ -112,11 +147,11 @@ If you imported the repository into Vercel, turn off Vercel's own Git deployment
 
 ### Saving your work
 
-- **Autosave**: every change is saved in the browser's localStorage. That copy exists only in the browser and computer you are using, and clearing your browser data deletes it.
-- **Save** (Ctrl+S) writes an `.neoproject` file. In Chrome and Edge, the first save asks where to put the file, and later saves write back to that same file. **Save As** makes a copy. Other browsers download the file instead.
-- **Open** loads an `.neoproject` file or an older `.json` project file.
-
-Keep a project file for anything important.
+- **Autosave**: every change is saved to the database shortly after you make it. The status bar shows *All changes saved*, *Saving…* or an error with a Retry button. **Ctrl+S** sends pending changes straight away.
+- **Two people editing at once**: each save says which version it started from. If someone else saved in between, your save is refused rather than overwriting theirs, and the status bar lets you choose **Load theirs** or **Keep mine**.
+- **Versions** (File › Versions): named snapshots stored with the project, visible to everyone who can open it (up to 50 per project).
+- **Download a copy** writes an `.neoproject` file. **Open a file**, **Import**, templates and the sample each create a *new* project in the database.
+- Only view preferences (zoom, columns, theme) and the last project you opened are kept in the browser.
 
 ### Opening files by double-clicking
 
@@ -158,6 +193,12 @@ In Chrome or Edge, install Neo Project as an app. After that, double-clicking an
 
 ```
 MS-Project-Clone/
+├── api/index.ts             Vercel serverless entry point (wraps the Express app)
+├── server/                  API: auth, sessions, users, projects, versions, MongoDB access
+│   ├── routes/              /api/auth, /api/users, /api/projects
+│   ├── seed-admin.ts        creates the first admin (npm run seed:admin)
+│   └── dev.ts               local API server (npm run dev:api)
+├── shared/roles.ts          roles and permission rules, used by both server and UI
 ├── public/
 │   ├── assets/              logo, favicon and app icons
 │   ├── manifest.webmanifest app install and .neoproject file handling

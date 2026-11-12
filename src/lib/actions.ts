@@ -1,9 +1,12 @@
 import OP from '../core';
-import { S, VIEW_NAMES, ask, PREV_STORE, type Store } from '../store';
+import { S, VIEW_NAMES, ask, type Store } from '../store';
 import { gridItems } from './grid';
 import { toXlsx } from './xlsx';
 import { fromMspXml, toMspXml } from './mspxml';
 import { fromTemplate, type Template } from './templates';
+import { api, type ProjectSummary } from './api';
+import { currentUser, whenSignedIn } from '../auth';
+import { canCreateProject } from '../../shared/roles';
 import type { Project } from '../types';
 
 const U = OP.util, C = OP.charts, IO = OP.io;
@@ -45,9 +48,37 @@ async function openHandle(h: any) {
   const file = await h.getFile();
   checkSize(file);
   const { project, note } = readProject(file.name, await file.text());
-  S().replaceProject(project, 'Opened ' + file.name + note);
-  // An XML file is an import, so Save should not write Neo Project JSON over it.
-  handle = isMspXml(file.name, '') ? null : h;
+  await createProject(project, 'Opened ' + file.name + ' as a new project' + note);
+}
+
+export const userCanCreate = () => { const u = currentUser(); return !!u && canCreateProject(u.role); };
+
+// Saves a plan as a new project in the database and opens it. Used by New, templates, opening files and imports.
+export async function createProject(p: Project, msg: string): Promise<boolean> {
+  if (!userCanCreate()) {
+    S().toast('Only admins and project managers can create projects. Ask one to create the project and share it with you.', true);
+    return false;
+  }
+  if (S().project) {
+    await S().closeProject();
+    if (S().project) return false; // the user chose to stay because of unsaved changes
+  }
+  try {
+    handle = null;
+    const r = await api<{ project: ProjectSummary; data: Project }>('POST', '/projects', { data: OP.model.normalize(p) });
+    S().showProject(r.project, r.data);
+    if (location.hash !== '#app') location.hash = 'app';
+    S().toast(msg);
+    return true;
+  } catch (e: any) {
+    S().toast('Could not create the project: ' + e.message, true);
+    return false;
+  }
+}
+
+// Opens a plan someone shared as a link: it becomes a new project of yours, after asking.
+export function openSharedCopy(p: Project) {
+  whenSignedIn(() => ask('Save a copy of the shared plan “' + p.name + '” as a new project?', () => { void createProject(p, 'Shared plan saved as a new project'); }, 'Save copy'));
 }
 
 async function openFile() {
@@ -63,7 +94,7 @@ export function handleLaunchFiles() {
   W.launchQueue?.setConsumer((params: any) => {
     if (!params.files?.length) return;
     location.hash = 'app';
-    openHandle(params.files[0]).catch((e: any) => S().toast('Could not open file: ' + e.message, true));
+    whenSignedIn(() => { openHandle(params.files[0]).catch((e: any) => S().toast('Could not open file: ' + e.message, true)); });
   });
 }
 
@@ -98,16 +129,15 @@ function svgElement(str: string): SVGSVGElement {
   return new DOMParser().parseFromString(str, 'image/svg+xml').documentElement as unknown as SVGSVGElement;
 }
 
-// Replaces the current plan; the previous one can be restored from File › Open.
+// Replaces the open project's plan (e.g. restoring a version); Undo brings the previous plan back.
 export function loadProject(p: Project, msg: string) {
-  handle = null;
   S().setUI({ backstage: false, menu: null });
   S().replaceProject(p, msg);
 }
 
 export function openTemplate(t: Template) {
-  ask('Start a new plan from the “' + t.name + '” template? The current one can be restored from File › Open › Restore Previous Project.',
-    () => loadProject(fromTemplate(t), t.name + ' template loaded'), 'Use template');
+  ask('Create a new project from the “' + t.name + '” template?',
+    () => { void createProject(fromTemplate(t), 'New project created from the ' + t.name + ' template'); }, 'Create project');
 }
 
 export function runAction(a: string) {
@@ -115,23 +145,21 @@ export function runAction(a: string) {
   st.setUI({ menu: null, backstage: false });
   switch (a) {
     case 'new':
-      ask('Start a new blank project? The current one can be restored with Undo.', () => { handle = null; S().replaceProject(OP.model.blank(), 'New project created'); }, 'New project');
+      ask('Create a new blank project?', () => { void createProject(OP.model.blank(), 'New project created'); }, 'Create project');
       break;
     case 'sample':
-      ask('Open the sample project? The current one can be restored from File › Open › Restore Previous Project.', () => { handle = null; S().replaceProject(OP.demo(), 'Sample project loaded'); }, 'Open sample');
+      ask('Create a new project from the sample plan?', () => { void createProject(OP.demo(), 'Sample project created'); }, 'Create project');
       break;
-    case 'restore': {
-      let text: string | null = null;
-      try { text = localStorage.getItem(PREV_STORE); } catch { /* storage unavailable */ }
-      if (!text) { st.toast('There is no previous project to restore.'); break; }
-      try { handle = null; st.replaceProject(IO.fromJSON(text), 'Previous project restored'); } catch (e: any) { st.toast('Could not restore: ' + e.message, true); }
+    case 'projects': void st.closeProject(); break;
+    case 'open':
+      if (!userCanCreate()) { st.toast('Only admins and project managers can create projects from files.', true); break; }
+      if (FS) openFile(); else pickFile(false);
       break;
-    }
-    case 'open': if (FS) openFile(); else pickFile(false); break;
     case 'insert': pickFile(true); break;
     case 'import': st.openDialog('import'); break;
     case 'share': st.openDialog('share'); break;
-    case 'save': saveFile(false); break;
+    case 'save': void st.saveNow(); break;
+    case 'download': saveFile(false); break;
     case 'saveas': saveFile(true); break;
     case 'xlsx':
       U.download(name + '-tasks.xlsx', new Blob([toXlsx(IO.taskTable(st.p), 'Tasks')], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
@@ -176,7 +204,7 @@ function pickFile(insert: boolean) {
           st.select([res.uid], res.uid);
           const notes = res.warnings.concat(note ? [note.replace(/^\. Note: /, '')] : []);
           st.toast('Inserted ' + file.name + ' as a subproject' + (notes.length ? '. Note: ' + notes.join('; ') + '.' : ''), notes.length > 0);
-        } else st.replaceProject(p, 'Opened ' + file.name + note);
+        } else void createProject(p, 'Opened ' + file.name + ' as a new project' + note);
       } catch (e: any) {
         st.toast('Could not open file: ' + e.message, true);
       }

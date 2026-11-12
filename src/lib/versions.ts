@@ -1,34 +1,20 @@
 import type { Project } from '../types';
+import { api, type VersionInfo } from './api';
 
-// Named versions are full copies of a plan kept in this browser, newest first.
-export interface Version { id: string; name: string; project: string; at: string; json: string }
+// Named versions are full copies of a plan, stored with the project in the database (newest first, up to 50).
 
-const KEY = 'neoproject.versions', MAX = 30;
-
-export function listVersions(): Version[] {
-  try {
-    const list = JSON.parse(localStorage.getItem(KEY) || '[]');
-    return Array.isArray(list) ? list.filter(v => v && typeof v.json === 'string') : [];
-  } catch {
-    return [];
-  }
+export async function listVersions(projectId: string): Promise<VersionInfo[]> {
+  return (await api<{ versions: VersionInfo[] }>('GET', '/projects/' + projectId + '/versions')).versions;
 }
 
-function store(list: Version[]) {
-  localStorage.setItem(KEY, JSON.stringify(list));
+export async function saveVersion(projectId: string, name: string, p: Project): Promise<VersionInfo> {
+  return (await api<{ version: VersionInfo }>('POST', '/projects/' + projectId + '/versions', { name: name.trim() || 'Version', data: p })).version;
 }
 
-// Returns an error message when the version could not be saved.
-export function saveVersion(name: string, p: Project): string | null {
-  const v: Version = { id: Date.now().toString(36), name: name.trim() || 'Version', project: p.name, at: new Date().toISOString(), json: JSON.stringify(p) };
-  try {
-    store([v, ...listVersions()].slice(0, MAX));
-    return null;
-  } catch {
-    return 'Browser storage is full or unavailable. Delete some versions, or save a project file instead.';
-  }
+export async function getVersion(projectId: string, id: string): Promise<Project> {
+  return (await api<{ data: Project }>('GET', '/projects/' + projectId + '/versions/' + id)).data;
 }
 
-export function deleteVersion(id: string) {
-  try { store(listVersions().filter(v => v.id !== id)); } catch { /* storage unavailable */ }
+export async function deleteVersion(projectId: string, id: string): Promise<void> {
+  await api('DELETE', '/projects/' + projectId + '/versions/' + id);
 }
