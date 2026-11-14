@@ -54,25 +54,27 @@ async function openHandle(h: any) {
 export const userCanCreate = () => { const u = currentUser(); return !!u && canCreateProject(u.role); };
 
 // Saves a plan as a new project in the database and opens it. Used by New, templates, opening files and imports.
-export async function createProject(p: Project, msg: string): Promise<boolean> {
-  if (!userCanCreate()) {
-    S().toast('Only admins and project managers can create projects. Ask one to create the project and share it with you.', true);
-    return false;
-  }
+// requestId: sent with the create so repeating it cannot make a second project. onError: report failures
+// yourself instead of as a toast.
+export async function createProject(p: Project, msg: string, opts: { requestId?: string; onError?: (message: string) => void } = {}): Promise<boolean> {
+  const fail = (m: string) => { if (opts.onError) opts.onError(m); else S().toast(m, true); return false; };
+  if (!userCanCreate()) return fail('Only admins and project managers can create projects. Ask one to create the project and share it with you.');
   if (S().project) {
     await S().closeProject();
-    if (S().project) return false; // the user chose to stay because of unsaved changes
+    // The user chose to stay because of unsaved changes (they were asked), so there is nothing more to say.
+    if (S().project) return opts.onError ? fail('The open project still has unsaved changes, so nothing was created.') : false;
   }
   try {
     handle = null;
-    const r = await api<{ project: ProjectSummary; data: Project }>('POST', '/projects', { data: OP.model.normalize(p) });
+    const body: Record<string, unknown> = { data: OP.model.normalize(p) };
+    if (opts.requestId) body.requestId = opts.requestId;
+    const r = await api<{ project: ProjectSummary; data: Project }>('POST', '/projects', body);
     S().showProject(r.project, r.data);
     if (location.hash !== '#app') location.hash = 'app';
     S().toast(msg);
     return true;
   } catch (e: any) {
-    S().toast('Could not create the project: ' + e.message, true);
-    return false;
+    return fail('Could not create the project: ' + e.message);
   }
 }
 
@@ -138,6 +140,13 @@ export function loadProject(p: Project, msg: string) {
 export function openTemplate(t: Template) {
   ask('Create a new project from the “' + t.name + '” template?',
     () => { void createProject(fromTemplate(t), 'New project created from the ' + t.name + ' template'); }, 'Create project');
+}
+
+// The Construction Project template is a setup wizard rather than a fixed task list.
+export function openConstructionWizard() {
+  if (!userCanCreate()) { S().toast('Only admins and project managers can create projects.', true); return; }
+  S().setUI({ backstage: false, menu: null });
+  S().openDialog('construction');
 }
 
 export function runAction(a: string) {

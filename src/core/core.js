@@ -239,6 +239,7 @@ OP.model = (function () {
         o.uid = u;
       });
     });
+    var seenInstances = {};
     p.tasks.forEach(function (t) {
       if (t.snet && !t.constraintDate) { t.constraint = 'SNET'; t.constraintDate = t.snet; }
       delete t.snet;
@@ -274,7 +275,9 @@ OP.model = (function () {
         if (typeof v === 'string' || (typeof v === 'number' && isFinite(v))) custom[c] = v;
       }
       t.custom = custom;
+      normalizeTaskConstruction(t, seenInstances);
     });
+    if (p.construction != null && !isObj(p.construction)) delete p.construction;
     p.resources.forEach(function (r) {
       fill(r, RES_DEFAULTS);
       ['name', 'initials', 'role', 'materialLabel'].forEach(function (k) { r[k] = str(r[k]); });
@@ -293,6 +296,21 @@ OP.model = (function () {
     p.version = 2;
     normalizeLevels(p);
     return p;
+  }
+
+  // Construction metadata from the building-plan workflow is optional. Keep it only when well formed, and
+  // keep each generated item's identity unique: a duplicated instance id gets a fresh one rather than two
+  // tasks claiming the same scope.
+  function normalizeTaskConstruction(t, seen) {
+    var c = t.construction;
+    if (c == null) return;
+    if (!isObj(c) || !c.instanceId || typeof c.instanceId !== 'string') { delete t.construction; return; }
+    if (seen[c.instanceId]) c.instanceId = c.instanceId + '~' + t.uid;
+    seen[c.instanceId] = true;
+    ['quantity', 'productivity'].forEach(function (k) {
+      if (k in c) c[k] = c[k] === null || c[k] === '' ? null : (isFinite(+c[k]) && +c[k] >= 0 ? +c[k] : null);
+    });
+    if (c.proposedLinks != null && !Array.isArray(c.proposedLinks)) delete c.proposedLinks;
   }
 
   function isObj(o) { return o != null && typeof o === 'object' && !Array.isArray(o); }

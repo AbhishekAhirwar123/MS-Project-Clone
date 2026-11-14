@@ -14,7 +14,7 @@ OP.io = (function () {
   // Append another project as a summary task (subproject). Resources and custom fields are matched by name.
   // Returns the new summary task's uid and notes about data that could not be carried over.
   function insertProject(p, sub) {
-    var resMap = {}, taskMap = {}, copies = [], cfMap = {}, warnings = [];
+    var resMap = {}, taskMap = {}, copies = [], cfMap = {}, warnings = [], dropped = false;
     sub.customFields.forEach(function (f) {
       var same = p.customFields.filter(function (x) { return x.name === f.name && x.type === f.type; })[0];
       if (!same) { same = { id: 'c' + Date.now().toString(36) + p.customFields.length, name: f.name, type: f.type }; p.customFields.push(same); }
@@ -46,8 +46,11 @@ OP.io = (function () {
       c.assignments = t.assignments.filter(function (a) { return resMap[a.res]; }).map(function (a) { return { res: resMap[a.res], units: a.units }; });
       c.custom = {};
       for (var k in t.custom) if (cfMap[k]) c.custom[cfMap[k]] = t.custom[k];
+      // Construction metadata refers to the other plan's buildings and locations, which are not merged.
+      if (c.construction) { delete c.construction; dropped = true; }
       p.tasks.push(c);
     });
+    if (dropped) warnings.push('its construction location and quantity details were not copied');
     M.normalizeLevels(p);
     return { uid: head.uid, warnings: warnings };
   }

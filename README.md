@@ -153,6 +153,22 @@ If you imported the repository into Vercel, turn off Vercel's own Git deployment
 - **Download a copy** writes an `.neoproject` file. **Open a file**, **Import**, templates and the sample each create a *new* project in the database.
 - Only view preferences (zoom, columns, theme) and the last project you opened are kept in the browser.
 
+### Construction projects (building plans)
+
+**Construction Project** (in *Start from a template* and File › New) opens a five-step setup:
+
+1. **Project and building**: name, tower, start date, project engineer (optional), and the site calendar. Working days are chosen explicitly, and holidays are added as exceptions.
+2. **Locations**: basements, ground floor, numbered floors, terrace, common areas, building-level works (for example the façade), and optional flats or zones on a floor.
+3. **Activities**: the built-in catalogue (versioned in `src/lib/construction/catalogue.ts`) grouped into Structure, Masonry and concealed services, Plaster and finishes, and Final fittings and handover. Rename, reorder, add custom activities, choose locations, and split activities by zone.
+4. **Quantities and durations**: per location, either *quantity-based* (quantity ÷ output per crew working day, rounded to 0.01 day like any other duration) or *manual*. Contractor, crew and engineer are optional. Bulk "apply to selected" copies values, so each floor stays independent.
+5. **Review and generate**: check the proposed dependencies and add, edit or remove them, then **Generate draft plan**.
+
+The result is an ordinary project scheduled by the existing engine, with an outline of building › location › activity. It is created with status **Draft** and marked *Draft · needs engineer review*. No baseline is set and nothing is approved.
+
+Proposed links are only created within one location. Display order never creates links. The three concealed services (electrical conduit, concealed plumbing, AC pipework) run in parallel after brickwork, and inside plaster waits for a zero-duration *Concealed services review/release* milestone that follows all of them. That milestone's date is not proof that an inspection passed. Activities with no safe default prerequisite are marked *Needs dependency review*.
+
+Construction details are stored on the plan (`project.construction`) and on each generated task (`task.construction`): stable location and activity identity, quantity and unit, duration basis, output per crew day, contractor, responsible engineer and crew resource. These details are copies, so later catalogue changes never alter an existing plan. Ordinary projects don't have them.
+
 ### Opening files by double-clicking
 
 In Chrome or Edge, install Neo Project as an app. After that, double-clicking an `.neoproject` file opens it in Neo Project.

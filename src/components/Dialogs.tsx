@@ -9,6 +9,7 @@ import { projectFromTable } from '../lib/importTable';
 import { shareUrl } from '../lib/share';
 import { createProject } from '../lib/actions';
 import { AccountDialog, PasswordDialog, SharingDialog } from './AccountDialogs';
+import ConstructionWizard from './ConstructionWizard';
 
 const U = OP.util;
 const STATUSES = ['Draft', 'In review', 'Approved', 'Baselined', 'Final'];
@@ -349,6 +350,7 @@ export default function DialogHost() {
     case 'account': return <AccountDialog />;
     case 'password': return <PasswordDialog />;
     case 'sharing': return <SharingDialog {...dialog.props} />;
+    case 'construction': return <ConstructionWizard />;
     default: return null;
   }
 }

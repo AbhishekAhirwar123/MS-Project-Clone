@@ -30,6 +30,8 @@ export interface ProjectDoc {
   createdAt: Date;
   updatedAt: Date;
   updatedBy: ObjectId;
+  // Set when the client sent a request id with the create; a repeat of that request returns this project.
+  createRequestId?: string;
 }
 
 export interface VersionDoc {
@@ -81,6 +83,7 @@ async function ensureIndexes(db: Db) {
     db.collection('sessions').createIndex({ userId: 1 }),
     db.collection('projects').createIndex({ ownerId: 1 }),
     db.collection('projects').createIndex({ 'members.userId': 1 }),
+    db.collection('projects').createIndex({ ownerId: 1, createRequestId: 1 }, { unique: true, partialFilterExpression: { createRequestId: { $type: 'string' } } }),
     db.collection('versions').createIndex({ projectId: 1, createdAt: -1 }),
     db.collection('login_attempts').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
   ]);

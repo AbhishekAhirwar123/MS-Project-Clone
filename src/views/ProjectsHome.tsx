@@ -5,7 +5,7 @@ import { useAuth } from '../auth';
 import { goTo, useNav } from '../nav';
 import { api, type ProjectSummary, type User } from '../lib/api';
 import { initials } from '../components/AccountDialogs';
-import { openTemplate, runAction } from '../lib/actions';
+import { openConstructionWizard, openTemplate, runAction } from '../lib/actions';
 import { TEMPLATES } from '../lib/templates';
 import { ACCESS_LABELS, ROLES, ROLE_LABELS, canCreateProject, canManage, canManageUsers, type Role } from '../../shared/roles';
 
@@ -95,6 +95,9 @@ function ProjectsPage() {
       {creator && <>
         <h2 className="bs-sub">Start from a template</h2>
         <div className="bs-cards">
+          <button className="bs-card" onClick={openConstructionWizard}>
+            <div className="bs-thumb cx-thumb"><i /><i /><i /></div><b>Construction Project</b><span className="bs-card-sub">Building and floor schedule from a quantity-based activity catalogue</span>
+          </button>
           {TEMPLATES.map(t => (
             <button key={t.id} className="bs-card" onClick={() => openTemplate(t)}>
               <div className="bs-thumb sample"><i /><i /><i /></div><b>{t.name}</b><span className="bs-card-sub">{t.desc}</span>

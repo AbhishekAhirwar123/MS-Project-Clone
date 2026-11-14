@@ -1,7 +1,7 @@
 import { useEffect, useState, type JSX } from 'react';
 import OP from '../core';
 import { useApp, ask, VIEW_NAMES, ZOOMS } from '../store';
-import { hasImage, loadProject, openTemplate, runAction, userCanCreate } from '../lib/actions';
+import { hasImage, loadProject, openConstructionWizard, openTemplate, runAction, userCanCreate } from '../lib/actions';
 import { TEMPLATES } from '../lib/templates';
 import { deleteVersion, getVersion, listVersions, saveVersion } from '../lib/versions';
 import type { VersionInfo } from '../lib/api';
@@ -43,6 +43,7 @@ export function TitleBar() {
           : <button className="title-btn" title={readOnly ? st.p.name : 'Rename project'} disabled={readOnly} onClick={() => setRenaming(true)}>{st.p.name}</button>}
         {' - Neo Project'}
         {readOnly && <span className="ro-badge" title="You can look but not change this project">Read-only</span>}
+        {st.p.construction?.review?.state === 'draft' && <span className="ro-badge" title={st.p.construction.review.note}>Draft · needs engineer review</span>}
       </div>
       <div className="tb-right">
         <button className="qat-btn" title="Dark / light" aria-label="Toggle dark mode" onClick={() => st.setUI({ theme: st.theme === 'dark' ? 'light' : 'dark' })}>
@@ -194,6 +195,9 @@ export function Backstage() {
       <button className="bs-card" onClick={() => runAction('new')}><div className="bs-thumb blank" /><b>Blank Project</b></button>
       <button className="bs-card" onClick={() => runAction('sample')}><div className="bs-thumb sample"><i /><i /><i /></div><b>Sample Project</b></button>
     </div><h2 className="bs-sub">Templates</h2><div className="bs-cards">
+      <button className="bs-card" onClick={openConstructionWizard}>
+        <div className="bs-thumb cx-thumb"><i /><i /><i /></div><b>Construction Project</b><span className="bs-card-sub">Building and floor schedule from a quantity-based activity catalogue</span>
+      </button>
       {TEMPLATES.map(t => (
         <button key={t.id} className="bs-card" onClick={() => openTemplate(t)}>
           <div className="bs-thumb sample"><i /><i /><i /></div><b>{t.name}</b><span className="bs-card-sub">{t.desc}</span>

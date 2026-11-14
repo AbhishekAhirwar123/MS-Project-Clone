@@ -3,6 +3,7 @@ import { useApp, type Store } from '../store';
 import * as ops from '../lib/taskOps';
 import Field, { DateField } from './Field';
 import Icon from './Icon';
+import ConstructionPanel from './ConstructionPanel';
 import type { Project, Resource, Row, Task } from '../types';
 
 const U = OP.util, M = OP.model;
@@ -235,6 +236,7 @@ function DrawerBody({ st, t, r }: { st: Store; t: Task; r: Row }) {
           </>}
         </>}
 
+        <ConstructionPanel p={p} t={t} edit={edit} />
         {p.customFields.length > 0 && <>
           <div className="section-title">Custom fields</div>
           {p.customFields.map(f => (

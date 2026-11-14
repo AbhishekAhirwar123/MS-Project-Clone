@@ -59,12 +59,30 @@ router.post('/', async (req, res) => {
   const user = userOf(req);
   if (!canCreateProject(user.role)) throw forbidden('Only admins and project managers can create projects.');
   const data = projectData(req.body?.data);
+  // Optional: a client-generated id for this create. Sending the same request again (a double click, or a retry
+  // after a lost response) returns the project the first one made instead of creating another.
+  const requestId = req.body?.requestId;
+  if (requestId != null && (typeof requestId !== 'string' || !/^[A-Za-z0-9_-]{8,64}$/.test(requestId))) throw badRequest('requestId is not valid.');
+  const projects = await col.projects();
+  const existing = async () => {
+    const p = requestId ? await projects.findOne({ ownerId: user._id, createRequestId: requestId }) : null;
+    return p && { project: summary(p, 'owner', await userNames([user._id, p.updatedBy])), data: p.data };
+  };
+  const again = await existing();
+  if (again) { res.status(200).json(again); return; }
   const now = new Date();
   const doc: ProjectDoc = {
     _id: new ObjectId(), name: planName(data), ownerId: user._id, members: [], data, version: 1,
-    createdAt: now, updatedAt: now, updatedBy: user._id
+    createdAt: now, updatedAt: now, updatedBy: user._id, ...(requestId ? { createRequestId: requestId } : {})
   };
-  await (await col.projects()).insertOne(doc);
+  try {
+    await projects.insertOne(doc);
+  } catch (e) {
+    // Two copies of the same request raced; the unique index let only one through.
+    const raced = (e as { code?: number }).code === 11000 ? await existing() : null;
+    if (raced) { res.status(200).json(raced); return; }
+    throw e;
+  }
   res.status(201).json({ project: summary(doc, 'owner', await userNames([user._id])), data });
 });
 
